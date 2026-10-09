@@ -73,6 +73,12 @@ struct PeriodEditorView: View {
         return ScheduleValidator.validate(periods: siblings + [draft]).filter { $0.periodIDs.contains(draft.id) }
     }
 
+    /// Time problems shown under the times. A missing title only disables Save; it isn't
+    /// flagged in red before the user has had a chance to type one.
+    private var timeIssues: [ScheduleIssue] {
+        issues.filter { if case .emptyTitle = $0 { false } else { true } }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -154,11 +160,11 @@ struct PeriodEditorView: View {
             .accessibilityIdentifier("periodEndPicker")
             Toggle("Include in Schedule", isOn: $draft.isEnabled)
         } footer: {
-            if issues.isEmpty {
+            if timeIssues.isEmpty {
                 Text("\(CountdownFormat.short(TimeInterval(max(0, draft.durationMinutes) * 60))) long.")
             } else {
                 VStack(alignment: .leading, spacing: RhythmSpacing.xs) {
-                    ForEach(issues) { issue in
+                    ForEach(timeIssues) { issue in
                         Label(issue.message, systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.red)
                     }
@@ -324,6 +330,7 @@ struct NotificationStatusFooter: View {
                 Button("Turn On in Settings") { model.notifications.openSystemSettings() }
                     .font(.footnote.weight(.semibold))
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("notificationsDeniedNotice")
         case _ where hasReminders && !model.preferences.remindersEnabled:
             Text("Reminders are turned off in Rhythm’s settings.")
