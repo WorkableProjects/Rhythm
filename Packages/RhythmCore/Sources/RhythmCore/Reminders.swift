@@ -161,7 +161,8 @@ public struct ReminderPlanner: Sendable {
                       fireDate > now else { continue }
                 planned.append(make(reminder, periodID: periodID, periodTitle: period.title, date: date, fireDate: fireDate))
             case .standalone(let dateOpt, let timeOpt):
-                if let date = dateOpt ?? reminder.dueDate, let time = timeOpt ?? reminder.dueTime ?? ClockTime(hour: 9, minute: 0) {
+                if let date = dateOpt ?? reminder.dueDate {
+                    let time = timeOpt ?? reminder.dueTime ?? ClockTime(hour: 9, minute: 0)
                     if let fireDate = date.date(at: time, in: engine.calendar), fireDate > now {
                         planned.append(make(reminder, periodID: reminder.id, periodTitle: "Reminder", date: date, fireDate: fireDate))
                     }

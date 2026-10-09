@@ -29,4 +29,55 @@ enum SharedStorage {
 
     static let widgetKind = "RhythmScheduleWidget"
     static let remindersWidgetKind = "RhythmRemindersWidget"
+
+    static var sharedDefaults: UserDefaults? {
+        guard let identifier = appGroupIdentifier else { return nil }
+        return UserDefaults(suiteName: identifier)
+    }
+
+    static let pendingCompletedIDsKey = "RhythmPendingCompletedReminderIDs"
+    static let pendingSnoozedIDsKey = "RhythmPendingSnoozedReminderIDs"
+
+    static func recordWidgetCompletion(id: UUID) {
+        let defaults = sharedDefaults ?? UserDefaults.standard
+        var list = defaults.stringArray(forKey: pendingCompletedIDsKey) ?? []
+        list.append(id.uuidString)
+        defaults.set(list, forKey: pendingCompletedIDsKey)
+    }
+
+    static func recordWidgetSnooze(id: UUID, until date: Date) {
+        let defaults = sharedDefaults ?? UserDefaults.standard
+        var dict = defaults.dictionary(forKey: pendingSnoozedIDsKey) as? [String: Double] ?? [:]
+        dict[id.uuidString] = date.timeIntervalSince1970
+        defaults.set(dict, forKey: pendingSnoozedIDsKey)
+    }
+
+    @MainActor
+    static func consumePendingWidgetActions(repository: ScheduleRepository) {
+        let defaults = sharedDefaults ?? UserDefaults.standard
+        let completedList = defaults.stringArray(forKey: pendingCompletedIDsKey) ?? []
+        let snoozedDict = defaults.dictionary(forKey: pendingSnoozedIDsKey) as? [String: Double] ?? [:]
+
+        guard !completedList.isEmpty || !snoozedDict.isEmpty else { return }
+
+        let rules = repository.reminders()
+
+        for idStr in completedList {
+            if let uuid = UUID(uuidString: idStr), let rule = rules.first(where: { $0.id == uuid }) {
+                repository.setReminderStatus(rule, status: .completed)
+            }
+        }
+
+        for (idStr, timestamp) in snoozedDict {
+            if let uuid = UUID(uuidString: idStr), let rule = rules.first(where: { $0.id == uuid }) {
+                let snoozedUntil = Date(timeIntervalSince1970: timestamp)
+                repository.setReminderStatus(rule, status: .snoozed, snoozedUntil: snoozedUntil)
+            }
+        }
+
+        try? repository.save()
+
+        defaults.removeObject(forKey: pendingCompletedIDsKey)
+        defaults.removeObject(forKey: pendingSnoozedIDsKey)
+    }
 }

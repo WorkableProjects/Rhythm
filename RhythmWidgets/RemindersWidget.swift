@@ -24,6 +24,7 @@ struct CompleteReminderIntent: AppIntent {
         guard let url = SharedStorage.remindersSnapshotURL,
               let uuid = UUID(uuidString: reminderID) else { return .result() }
 
+        SharedStorage.recordWidgetCompletion(id: uuid)
         if case .success(var snapshot) = RemindersWidgetSnapshotCodec.decode(try? Data(contentsOf: url)) {
             snapshot.items = snapshot.items.map { item in
                 var updated = item
@@ -60,12 +61,14 @@ struct SnoozeReminderIntent: AppIntent {
         guard let url = SharedStorage.remindersSnapshotURL,
               let uuid = UUID(uuidString: reminderID) else { return .result() }
 
+        let snoozeUntil = Date.now.addingTimeInterval(15 * 60)
+        SharedStorage.recordWidgetSnooze(id: uuid, until: snoozeUntil)
         if case .success(var snapshot) = RemindersWidgetSnapshotCodec.decode(try? Data(contentsOf: url)) {
             snapshot.items = snapshot.items.map { item in
                 var updated = item
                 if updated.id == uuid {
                     updated.statusRaw = "snoozed"
-                    updated.snoozedUntilDate = Date.now.addingTimeInterval(15 * 60)
+                    updated.snoozedUntilDate = snoozeUntil
                 }
                 return updated
             }

@@ -152,7 +152,7 @@ public enum ExportImportCodec {
 
         for reminder in export.reminders {
             checkUnique(reminder.id, "reminder “\(reminder.title)”")
-            if !periodIDs.contains(reminder.periodID) {
+            if let periodID = reminder.periodID, !periodIDs.contains(periodID) {
                 problems.append("Reminder “\(reminder.title)” refers to a missing period.")
             }
             if case .beforeStart(let minutes) = reminder.trigger, !(0...720).contains(minutes) {
