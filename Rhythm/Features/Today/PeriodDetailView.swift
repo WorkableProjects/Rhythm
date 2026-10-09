@@ -9,7 +9,7 @@ struct PeriodDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let presentation: PeriodPresentation
 
-    @State private var editingPeriod: SchedulePeriod?
+    @State private var editingPeriod: PeriodEditTarget?
     @State private var isEditingDate = false
 
     var body: some View {
@@ -32,10 +32,8 @@ struct PeriodDetailView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .sheet(item: $editingPeriod) { period in
-                if let owner = PeriodOwner(period: period) {
-                    PeriodEditorView(owner: owner, period: period)
-                }
+            .sheet(item: $editingPeriod) { target in
+                PeriodEditorView(owner: target.owner, period: target.period)
             }
             .sheet(isPresented: $isEditingDate) {
                 OverrideEditorView(date: presentation.date)
@@ -82,7 +80,7 @@ struct PeriodDetailView: View {
 
             Section {
                 Button {
-                    editingPeriod = stored
+                    editingPeriod = PeriodEditTarget(period: stored)
                 } label: {
                     Label(editLabel(for: stored), systemImage: "pencil")
                 }

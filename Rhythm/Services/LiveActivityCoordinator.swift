@@ -78,7 +78,8 @@ final class LiveActivityCoordinator {
             guard let next = snapshot.nextPeriod,
                   next.startDate.timeIntervalSince(snapshot.now) <= upcomingLeadTime else { return nil }
             return .init(phase: .upcoming, title: next.title, kindName: next.kind.displayName, symbolName: next.symbolName,
-                         startDate: snapshot.now, endDate: next.startDate,
+                         // A fixed start keeps the content stable between reconciles.
+                         startDate: next.startDate.addingTimeInterval(-upcomingLeadTime), endDate: next.startDate,
                          nextTitle: next.title, nextStartDate: next.startDate,
                          deepLink: DeepLink.today(date: nil).url)
         case .scheduleNeeded, .noSchool, .dayComplete:

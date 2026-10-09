@@ -44,7 +44,9 @@ enum PersistenceController {
 
     static func load(inMemory: Bool) -> Loaded {
         let schema = Schema(versionedSchema: RhythmSchemaV1.self)
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        // Keep the database in the app's own container. Only the small widget snapshot is shared
+        // through the App Group, so extensions never touch SwiftData.
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory, groupContainer: .none)
         do {
             let container = try ModelContainer(for: schema, migrationPlan: RhythmMigrationPlan.self, configurations: [configuration])
             return Loaded(container: container, recoveryMessage: nil)

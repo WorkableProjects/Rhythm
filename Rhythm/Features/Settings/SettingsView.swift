@@ -16,104 +16,143 @@ struct SettingsView: View {
     @State private var isExplainingLiveActivities = false
 
     var body: some View {
-        @Bindable var preferences = model.preferences
         NavigationStack {
-            Form {
-                Section("Appearance") {
-                    Picker("Appearance", selection: $preferences.appearance) {
-                        ForEach(AppearancePreference.allCases) { Text($0.displayName).tag($0) }
-                    }
-                    Picker("Accent Color", selection: $preferences.accent) {
-                        ForEach(RhythmAccent.allCases) { accent in
-                            Label {
-                                Text(accent.displayName)
-                            } icon: {
-                                Image(systemName: "circle.fill").foregroundStyle(accent.color)
-                            }
-                            .tag(accent)
-                        }
-                    }
-                }
+            withDataPresentations(withPreferenceObservers(form))
+        }
+    }
 
-                liveActivitySection(preferences: $preferences.liveActivitiesEnabled)
-                notificationsSection(remindersEnabled: $preferences.remindersEnabled)
-
-                Section {
-                    LabeledContent("Time Format", value: "Follows iPhone Settings")
-                    LabeledContent("Time Zone", value: model.calendar.timeZone.localizedName(for: .generic, locale: .current) ?? model.calendar.timeZone.identifier)
-                } header: {
-                    Text("Schedule")
-                } footer: {
-                    Text("Rhythm uses your iPhone’s current time zone and recalculates automatically when it changes.")
-                }
-
-                dataSection
-
-                Section("About") {
-                    LabeledContent("Version", value: Self.versionString)
-                    NavigationLink("Privacy") { PrivacyView() }
-                }
+    private var form: some View {
+        @Bindable var preferences = model.preferences
+        return Form {
+            appearanceSection(appearance: $preferences.appearance, accent: $preferences.accent)
+            liveActivitySection(preferences: $preferences.liveActivitiesEnabled)
+            notificationsSection(remindersEnabled: $preferences.remindersEnabled)
+            scheduleSection
+            dataSection
+            Section("About") {
+                LabeledContent("Version", value: Self.versionString)
+                NavigationLink("Privacy") { PrivacyView() }
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
             }
+        }
+    }
+
+    /// Applies preference changes to notifications, widgets, and the Live Activity.
+    private func withPreferenceObservers(_ content: some View) -> some View {
+        content
             .onChange(of: model.preferences.accent) { model.preferencesDidChange() }
             .onChange(of: model.preferences.remindersEnabled) { model.preferencesDidChange() }
             .onChange(of: model.preferences.liveActivitiesEnabled) { _, isOn in
-                if isOn && !model.preferences.hasSeenLiveActivityExplanation {
-                    isExplainingLiveActivities = true
-                    model.preferences.hasSeenLiveActivityExplanation = true
-                }
-                model.preferencesDidChange()
+                liveActivitiesToggled(isOn)
             }
             .alert("Live Activities", isPresented: $isExplainingLiveActivities) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("During school hours, Rhythm can show the current period and time remaining on your Lock Screen and in the Dynamic Island. iOS decides when they appear and may limit them in Settings or Low Power Mode.")
             }
-            .fileExporter(isPresented: Binding(get: { exportDocument != nil }, set: { if !$0 { exportDocument = nil } }),
-                          document: exportDocument,
-                          contentType: .json,
-                          defaultFilename: "Rhythm Timetable") { result in
-                if case .failure(let error) = result {
-                    alert = SettingsAlert(title: "Export Failed", message: error.localizedDescription)
-                }
-            }
-            .fileImporter(isPresented: $isImporting, allowedContentTypes: [.json]) { result in
-                handleImport(result)
-            }
-            .sheet(item: $importPreview) { preview in
-                ImportPreviewView(preview: preview) { success in
-                    alert = success
-                        ? SettingsAlert(title: "Import Complete", message: "Your timetable was replaced with the imported one.")
-                        : SettingsAlert(title: "Import Failed", message: model.saveError ?? "Your previous data was kept.")
-                }
-            }
+    }
+
+    /// Export, import, delete-all, and result alerts.
+    private func withDataPresentations(_ content: some View) -> some View {
+        withResultAlert(withImportExport(content))
             .confirmationDialog("Delete All Rhythm Data?", isPresented: $isConfirmingDeleteAll, titleVisibility: .visible) {
-                Button("Delete All Data", role: .destructive) {
-                    model.deleteAllData()
-                    alert = SettingsAlert(title: "Data Deleted", message: "All schedules, date changes, reminders, and Quicklinks were removed from this iPhone.")
-                }
+                Button("Delete All Data", role: .destructive, action: deleteAllData)
             } message: {
                 Text("This removes every schedule, date change, reminder, and Quicklink. It can’t be undone. Consider exporting first.")
             }
-            .alert(
-                alert?.title ?? "",
-                isPresented: Binding(get: { alert != nil }, set: { if !$0 { alert = nil } }),
-                presenting: alert
-            ) { _ in
-                Button("OK", role: .cancel) {}
-            } message: { alert in
-                Text(alert.message)
+    }
+
+    private func withImportExport(_ content: some View) -> some View {
+        content
+            .fileExporter(isPresented: isExportingBinding, document: exportDocument, contentType: .json,
+                          defaultFilename: "Rhythm Timetable", onCompletion: handleExportResult)
+            .fileImporter(isPresented: $isImporting, allowedContentTypes: [.json], onCompletion: handleImport)
+            .sheet(item: $importPreview) { preview in
+                ImportPreviewView(preview: preview, onFinish: importFinished)
+            }
+    }
+
+    private func withResultAlert(_ content: some View) -> some View {
+        content.alert(alert?.title ?? "", isPresented: isShowingAlertBinding, presenting: alert) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { alert in
+            Text(alert.message)
+        }
+    }
+
+    private var isExportingBinding: Binding<Bool> {
+        Binding(get: { exportDocument != nil }, set: { if !$0 { exportDocument = nil } })
+    }
+
+    private var isShowingAlertBinding: Binding<Bool> {
+        Binding(get: { alert != nil }, set: { if !$0 { alert = nil } })
+    }
+
+    private func liveActivitiesToggled(_ isOn: Bool) {
+        if isOn && !model.preferences.hasSeenLiveActivityExplanation {
+            isExplainingLiveActivities = true
+            model.preferences.hasSeenLiveActivityExplanation = true
+        }
+        model.preferencesDidChange()
+    }
+
+    private func handleExportResult(_ result: Result<URL, Error>) {
+        if case .failure(let error) = result {
+            alert = SettingsAlert(title: "Export Failed", message: error.localizedDescription)
+        }
+    }
+
+    private func importFinished(_ success: Bool) {
+        if success {
+            alert = SettingsAlert(title: "Import Complete", message: "Your timetable was replaced with the imported one.")
+        } else {
+            alert = SettingsAlert(title: "Import Failed", message: model.saveError ?? "Your previous data was kept.")
+        }
+    }
+
+    private func deleteAllData() {
+        model.deleteAllData()
+        alert = SettingsAlert(title: "Data Deleted", message: "All schedules, date changes, reminders, and Quicklinks were removed from this iPhone.")
+    }
+
+    // MARK: Sections
+
+    private func appearanceSection(appearance: Binding<AppearancePreference>, accent: Binding<RhythmAccent>) -> some View {
+        Section("Appearance") {
+            Picker("Appearance", selection: appearance) {
+                ForEach(AppearancePreference.allCases) { Text($0.displayName).tag($0) }
+            }
+            Picker("Accent Color", selection: accent) {
+                ForEach(RhythmAccent.allCases) { option in
+                    Label {
+                        Text(option.displayName)
+                    } icon: {
+                        Image(systemName: "circle.fill").foregroundStyle(option.color)
+                    }
+                    .tag(option)
+                }
             }
         }
     }
 
-    // MARK: Sections
+    private var scheduleSection: some View {
+        let zone = model.calendar.timeZone
+        let zoneName = zone.localizedName(for: .generic, locale: .current) ?? zone.identifier
+        return Section {
+            LabeledContent("Time Format", value: "Follows iPhone Settings")
+            LabeledContent("Time Zone", value: zoneName)
+        } header: {
+            Text("Schedule")
+        } footer: {
+            Text("Rhythm uses your iPhone’s current time zone and recalculates automatically when it changes.")
+        }
+    }
 
     private func liveActivitySection(preferences enabled: Binding<Bool>) -> some View {
         Section {

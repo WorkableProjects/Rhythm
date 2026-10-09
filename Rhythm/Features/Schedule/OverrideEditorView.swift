@@ -18,7 +18,7 @@ struct OverrideEditorView: View {
     @State private var choice: Choice = .regular
     @State private var title = ""
     @State private var didLoad = false
-    @State private var editingPeriod: SchedulePeriod?
+    @State private var editingPeriod: PeriodEditTarget?
     @State private var isAddingPeriod = false
 
     private var existing: ScheduleOverride? { model.repository.override(on: date) }
@@ -74,10 +74,8 @@ struct OverrideEditorView: View {
                     .accessibilityIdentifier("saveOverrideButton")
                 }
             }
-            .sheet(item: $editingPeriod) { period in
-                if let override = period.dateOverride {
-                    PeriodEditorView(owner: .dateOverride(override), period: period)
-                }
+            .sheet(item: $editingPeriod) { target in
+                PeriodEditorView(owner: target.owner, period: target.period)
             }
             .sheet(isPresented: $isAddingPeriod) {
                 if let override = existing {
@@ -94,7 +92,7 @@ struct OverrideEditorView: View {
             let periods = override.periods.sorted { ScheduleValidator.chronological($0.definition, $1.definition) }
             ForEach(periods) { period in
                 Button {
-                    editingPeriod = period
+                    editingPeriod = PeriodEditTarget(period: period)
                 } label: {
                     LabeledContent(period.title) {
                         Text("\(period.start.formatted(calendar: model.calendar)) – \(period.end.formatted(calendar: model.calendar))")

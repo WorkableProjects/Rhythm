@@ -2,10 +2,11 @@ import XCTest
 
 /// End-to-end flows. Each test launches with an empty in-memory store and a fixed local clock
 /// (Friday 9 October 2026, 9:30 AM) so schedule states are deterministic.
+@MainActor
 final class RhythmUITests: XCTestCase {
     private var app: XCUIApplication!
 
-    override func setUp() {
+    nonisolated override func setUp() {
         continueAfterFailure = false
     }
 

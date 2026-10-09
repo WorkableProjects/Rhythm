@@ -24,6 +24,21 @@ enum PeriodOwner {
     }
 }
 
+/// A period to edit in a sheet. The owner is captured up front so the sheet never reads
+/// relationships from a period that was just deleted.
+struct PeriodEditTarget: Identifiable {
+    let owner: PeriodOwner
+    let period: SchedulePeriod
+    let id: UUID
+
+    init?(period: SchedulePeriod) {
+        guard let owner = PeriodOwner(period: period) else { return nil }
+        self.owner = owner
+        self.period = period
+        self.id = period.id
+    }
+}
+
 /// Creates or edits a period. Conflicts are validated live against the other periods in the
 /// same schedule, and saving is disabled until they are resolved.
 struct PeriodEditorView: View {
