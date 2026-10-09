@@ -55,7 +55,7 @@ scripts/ci-ios.sh           Build + test on the iOS Simulator
 3. For both the **Rhythm** and **RhythmWidgetsExtension** targets → **Signing & Capabilities**: enable *Automatically manage signing* and choose your team (a Personal Team works).
 4. Choose an iPhone simulator and press **⌘R**.
 
-Full Xcode-to-iPhone instructions, including Developer Mode and troubleshooting, are in §13 of the spec.
+Step-by-step Xcode setup and iPhone install instructions, including Developer Mode and troubleshooting, are in [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ### App Group note
 
