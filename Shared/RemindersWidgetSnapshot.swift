@@ -1,4 +1,5 @@
 import Foundation
+import RhythmCore
 
 public struct RemindersWidgetItem: Codable, Hashable, Sendable, Identifiable {
     public var id: UUID
@@ -55,6 +56,12 @@ public struct RemindersWidgetSnapshot: Codable, Hashable, Sendable {
     }
 }
 
+public enum RemindersWidgetSnapshotError: Error, Hashable, Sendable {
+    case missing
+    case corrupt
+    case unsupportedVersion(Int)
+}
+
 public enum RemindersWidgetSnapshotCodec {
     public static func encode(_ snapshot: RemindersWidgetSnapshot) throws -> Data {
         let encoder = JSONEncoder()
@@ -63,7 +70,7 @@ public enum RemindersWidgetSnapshotCodec {
         return try encoder.encode(snapshot)
     }
 
-    public static func decode(_ data: Data?) -> Result<RemindersWidgetSnapshot, WidgetSnapshotError> {
+    public static func decode(_ data: Data?) -> Result<RemindersWidgetSnapshot, RemindersWidgetSnapshotError> {
         guard let data, !data.isEmpty else { return .failure(.missing) }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970

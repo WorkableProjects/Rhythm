@@ -253,6 +253,24 @@ final class ScheduleRepository {
         context.delete(reminder)
     }
 
+    func consumePendingWidgetActions() {
+        let pending = SharedStorage.fetchAndClearPendingWidgetActions()
+        guard !pending.completedIDs.isEmpty || !pending.snoozedUntilByIDs.isEmpty else { return }
+
+        let rules = reminders()
+        for id in pending.completedIDs {
+            if let rule = rules.first(where: { $0.id == id }) {
+                setReminderStatus(rule, status: .completed)
+            }
+        }
+        for (id, snoozedUntil) in pending.snoozedUntilByIDs {
+            if let rule = rules.first(where: { $0.id == id }) {
+                setReminderStatus(rule, status: .snoozed, snoozedUntil: snoozedUntil)
+            }
+        }
+        try? save()
+    }
+
     // MARK: Overrides
 
     /// Creates or updates the single override for `date`.

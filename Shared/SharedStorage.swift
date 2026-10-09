@@ -52,32 +52,27 @@ enum SharedStorage {
         defaults.set(dict, forKey: pendingSnoozedIDsKey)
     }
 
-    @MainActor
-    static func consumePendingWidgetActions(repository: ScheduleRepository) {
+    struct PendingWidgetActions {
+        var completedIDs: [UUID]
+        var snoozedUntilByIDs: [UUID: Date]
+    }
+
+    static func fetchAndClearPendingWidgetActions() -> PendingWidgetActions {
         let defaults = sharedDefaults ?? UserDefaults.standard
         let completedList = defaults.stringArray(forKey: pendingCompletedIDsKey) ?? []
         let snoozedDict = defaults.dictionary(forKey: pendingSnoozedIDsKey) as? [String: Double] ?? [:]
 
-        guard !completedList.isEmpty || !snoozedDict.isEmpty else { return }
-
-        let rules = repository.reminders()
-
-        for idStr in completedList {
-            if let uuid = UUID(uuidString: idStr), let rule = rules.first(where: { $0.id == uuid }) {
-                repository.setReminderStatus(rule, status: .completed)
-            }
-        }
-
-        for (idStr, timestamp) in snoozedDict {
-            if let uuid = UUID(uuidString: idStr), let rule = rules.first(where: { $0.id == uuid }) {
-                let snoozedUntil = Date(timeIntervalSince1970: timestamp)
-                repository.setReminderStatus(rule, status: .snoozed, snoozedUntil: snoozedUntil)
-            }
-        }
-
-        try? repository.save()
-
         defaults.removeObject(forKey: pendingCompletedIDsKey)
         defaults.removeObject(forKey: pendingSnoozedIDsKey)
+
+        let completedIDs = completedList.compactMap { UUID(uuidString: $0) }
+        var snoozedUntilByIDs: [UUID: Date] = [:]
+        for (idStr, timestamp) in snoozedDict {
+            if let uuid = UUID(uuidString: idStr) {
+                snoozedUntilByIDs[uuid] = Date(timeIntervalSince1970: timestamp)
+            }
+        }
+
+        return PendingWidgetActions(completedIDs: completedIDs, snoozedUntilByIDs: snoozedUntilByIDs)
     }
 }

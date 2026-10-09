@@ -105,7 +105,7 @@ final class AppModel {
 
     func sceneBecameActive() {
         handleClockChange()
-        SharedStorage.consumePendingWidgetActions(repository: repository)
+        repository.consumePendingWidgetActions()
         Task { await notifications.refreshAuthorization() }
     }
 
@@ -144,7 +144,7 @@ final class AppModel {
     /// Recomputes notifications, the widget snapshot, and the Live Activity. Never blocks the UI
     /// and never fails loudly: each integration degrades on its own.
     func refreshIntegrations() {
-        SharedStorage.consumePendingWidgetActions(repository: repository)
+        repository.consumePendingWidgetActions()
         let engine = engine
         let now = now()
         widgetStore.update(configuration: configuration, engine: engine, accentKey: preferences.accent.rawValue, now: now)

@@ -5,6 +5,7 @@ import Foundation
 public enum DeepLink: Hashable, Sendable {
     case today(date: LocalDate?)
     case period(id: UUID, date: LocalDate?)
+    case reminders
     case schedule(date: LocalDate?)
     case quicklinks
     case settings
@@ -23,6 +24,8 @@ public enum DeepLink: Hashable, Sendable {
             components.host = "period"
             components.path = "/" + id.uuidString
             dateItem = date
+        case .reminders:
+            components.host = "reminders"
         case .schedule(let date):
             components.host = "schedule"
             dateItem = date
@@ -49,6 +52,8 @@ public enum DeepLink: Hashable, Sendable {
             let idString = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             guard let id = UUID(uuidString: idString) else { return nil }
             self = .period(id: id, date: date)
+        case "reminders":
+            self = .reminders
         case "schedule":
             self = .schedule(date: date)
         case "quicklinks":
