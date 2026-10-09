@@ -1,5 +1,5 @@
 import RhythmCore
-import SwiftData
+@preconcurrency import SwiftData
 import SwiftUI
 
 /// A compact list of today's remaining reminders. Renders nothing when there are none, so no

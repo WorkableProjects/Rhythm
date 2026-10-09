@@ -1,6 +1,6 @@
 import Foundation
 import RhythmCore
-import UserNotifications
+@preconcurrency import UserNotifications
 import WidgetKit
 
 /// Reminder operations that must work from any process: the app, a widget button, a Shortcut, or

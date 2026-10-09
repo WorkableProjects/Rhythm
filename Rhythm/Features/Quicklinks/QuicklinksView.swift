@@ -1,5 +1,5 @@
 import RhythmCore
-import SwiftData
+@preconcurrency import SwiftData
 import SwiftUI
 
 /// A launchpad for existing apps, websites, and Shortcuts. Rhythm only asks iOS to open the
