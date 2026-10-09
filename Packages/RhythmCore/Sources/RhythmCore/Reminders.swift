@@ -19,8 +19,8 @@ public enum ReminderTrigger: Hashable, Codable, Sendable {
     }
 }
 
-/// A reminder attached to a period. Rhythm only supports schedule-linked reminders;
-/// it is not a general-purpose task manager.
+/// A reminder attached to a period (an alert tied to the schedule). General-purpose reminders
+/// that don't depend on any period are `NativeReminder`.
 public struct ReminderDefinition: Identifiable, Hashable, Codable, Sendable {
     public var id: UUID
     public var periodID: UUID
@@ -60,10 +60,10 @@ public struct ReminderPlanner: Sendable {
     public var engine: ScheduleEngine
     /// How many days ahead individual occurrences are scheduled.
     public var horizonDays: Int
-    /// iOS keeps at most 64 pending requests per app; stay safely below it.
+    /// iOS keeps at most 64 pending requests per app; native reminders reserve 20 of them.
     public var maximumRequests: Int
 
-    public init(engine: ScheduleEngine, horizonDays: Int = 14, maximumRequests: Int = 60) {
+    public init(engine: ScheduleEngine, horizonDays: Int = 14, maximumRequests: Int = 44) {
         self.engine = engine
         self.horizonDays = horizonDays
         self.maximumRequests = maximumRequests

@@ -45,7 +45,7 @@ struct TodayRemindersView: View {
         let items = items
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: RhythmSpacing.sm) {
-                Text("Reminders")
+                Text("Period Reminders")
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
                 VStack(alignment: .leading, spacing: RhythmSpacing.md) {

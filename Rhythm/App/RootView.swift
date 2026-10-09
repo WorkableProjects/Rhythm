@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shows onboarding on first run, otherwise the three-tab app. Settings is a sheet reached from
+/// Shows onboarding on first run, otherwise the four-tab app. Settings is a sheet reached from
 /// a toolbar button rather than a fourth tab.
 struct RootView: View {
     @Environment(AppModel.self) private var model
@@ -19,6 +19,9 @@ struct RootView: View {
                 TabView(selection: $router.selectedTab) {
                     Tab("Today", systemImage: "clock", value: AppTab.today) {
                         TodayView()
+                    }
+                    Tab("Reminders", systemImage: "checklist", value: AppTab.reminders) {
+                        RemindersView()
                     }
                     Tab("Schedule", systemImage: "calendar", value: AppTab.schedule) {
                         ScheduleView()

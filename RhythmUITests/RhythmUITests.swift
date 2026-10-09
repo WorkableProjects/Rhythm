@@ -28,6 +28,33 @@ final class RhythmUITests: XCTestCase {
         return element.label
     }
 
+    // MARK: Reminders
+
+    func testCreateAndCompleteNativeReminder() {
+        launchWithSample()
+        app.tabBars.buttons["Reminders"].tap()
+        app.buttons["newReminderButton"].tap()
+        let title = app.descendants(matching: .any)["nativeReminderTitleField"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("Turn in essay")
+        app.buttons["saveNativeReminderButton"].tap()
+
+        app.buttons["smartList-All"].tap()
+        XCTAssertTrue(app.staticTexts["Turn in essay"].waitForExistence(timeout: 5))
+        app.buttons["reminderCheckbox"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Turn in essay"].waitForNonExistence(timeout: 5))
+    }
+
+    func testCreditsAreShownInSettings() {
+        launchWithSample()
+        app.buttons["settingsButton"].tap()
+        let credits = app.staticTexts["Caden Erwin and Workable Projects"]
+        for _ in 0..<6 where !credits.exists { app.swipeUp() }
+        XCTAssertTrue(credits.exists)
+        XCTAssertTrue(app.staticTexts["Built by Claude"].exists)
+    }
+
     // MARK: First run
 
     func testFirstRunShowsOnboardingAndSampleIsLabelled() {

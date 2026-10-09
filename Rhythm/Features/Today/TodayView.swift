@@ -60,6 +60,7 @@ private struct TodayContent: View {
                 ScheduleNeededView()
             case .noSchoolOverride, .unassigned:
                 NoSchoolView(source: day.source, date: displayedDate)
+                if isToday { DueTodayCard() }
             case .template, .customOverride:
                 if day.periods.isEmpty {
                     NoSchoolView(source: day.source, date: displayedDate)
@@ -69,6 +70,7 @@ private struct TodayContent: View {
                     } else {
                         DaySummaryView(day: day)
                     }
+                    if isToday { DueTodayCard() }
                     TodayRemindersView(day: day, now: now)
                     VStack(alignment: .leading, spacing: RhythmSpacing.sm) {
                         Text(isToday ? "Today’s Schedule" : "Schedule")

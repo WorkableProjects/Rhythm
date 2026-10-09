@@ -2,7 +2,7 @@
 
 A calm, local-first iPhone app that shows a student's school day at a glance: the current period, time remaining, and what's next — in the app, in Home Screen widgets, and in a Live Activity.
 
-by Workable & Claude
+Version 1.0.1 · by Workable Projects & Claude
 
 The product and engineering specification is [`Rhythm_Dev_Spec.md`](Rhythm_Dev_Spec.md). Implementation decisions and deviations are recorded in §16 of that file.
 
@@ -10,7 +10,7 @@ The product and engineering specification is [`Rhythm_Dev_Spec.md`](Rhythm_Dev_S
 
 ```text
 Rhythm.xcodeproj            Xcode project (app, widget extension, unit + UI test targets)
-Packages/RhythmCore/        Swift package: schedule engine and all pure logic (+ 93 tests)
+Packages/RhythmCore/        Swift package: schedule engine and all pure logic (+ unit tests)
 Rhythm/                     App target
   App/                      Entry point, AppModel (composition root), router, root view
   Models/                   SwiftData models, schema version + migration plan, mapping
@@ -18,10 +18,10 @@ Rhythm/                     App target
   Services/                 Notifications, Live Activity, widget snapshot, preferences
   Intents/                  App Intents + App Shortcuts
   DesignSystem/             Spacing/radius/motion tokens and shared components
-  Features/                 Onboarding, Today, Schedule, Quicklinks, Settings
+  Features/                 Onboarding, Today, Reminders, Schedule, Quicklinks, Settings
   Resources/                Asset catalog (app icon, accent colour)
 Shared/                     Compiled into both the app and the widget extension
-RhythmWidgets/              Widget extension: small/medium widgets and the Live Activity UI
+RhythmWidgets/              Widget extension: schedule widgets, interactive Reminders widgets, and the Live Activity UI
 RhythmTests/                App-level unit tests (SwiftData repository, integration mapping)
 RhythmUITests/              End-to-end UI tests
 Config/                     Info.plists and entitlements
@@ -39,6 +39,8 @@ scripts/ci-ios.sh           Build + test on the iOS Simulator
 | `ReminderPlanner` / `ReminderReconciler` | Bounded, idempotent local-notification planning and reconciliation behind a `NotificationCenterClient` protocol |
 | `WidgetSnapshot` | Compact, versioned payload for the widget extension, with staleness and version checks |
 | `ExportImportCodec` | Versioned JSON export; import validation without touching existing data |
+| `NativeReminderLibrary` | Native reminders that don't depend on any period: lists, due dates, priority, flags, checklists, repeats, smart filters (Today, Scheduled, Flagged, All, Completed), a JSON file store shared with widgets, and notification planning |
+| `ReminderQuickAdd` | Parses phrases like “Turn in essay tomorrow 3pm !high #Homework” |
 | `QuicklinkURLValidator` | Trims and validates destinations; never rewrites unknown schemes |
 | `DeepLink` | `rhythm://` routes used by widgets, notifications, the Live Activity, and intents |
 
@@ -59,7 +61,7 @@ Step-by-step Xcode setup and iPhone install instructions, including Developer Mo
 
 ### App Group note
 
-Widgets read a small snapshot the app writes into an App Group container. If your team can't provision the App Group, remove the `com.apple.security.application-groups` entry from **both** `Config/Rhythm.entitlements` and `Config/RhythmWidgets.entitlements`. The app keeps working; widgets will show "Open Rhythm to update" instead of your schedule. The Live Activity does not need the App Group.
+Widgets read a small snapshot the app writes into an App Group container, and the Reminders widgets read and edit a shared `Reminders.json` there (the checkmark buttons run an App Intent inside the widget extension, so nothing has to open). If your team can't provision the App Group, remove the `com.apple.security.application-groups` entry from **both** `Config/Rhythm.entitlements` and `Config/RhythmWidgets.entitlements`. The app keeps working; widgets will show "Open Rhythm" instead of your schedule and reminders (the Reminders tab itself keeps working, stored in the app's own folder). The Live Activity does not need the App Group.
 
 ## Tests
 
@@ -74,6 +76,19 @@ scripts/ci-ios.sh
 In Xcode, **⌘U** on the Rhythm scheme runs the RhythmCore tests, the app unit tests, and the UI tests. UI tests launch with `-RhythmUITesting` (empty in-memory store, isolated preferences) and `-RhythmClock 2026-10-09T09:30:00` (a fixed local time that keeps ticking), so schedule states are deterministic.
 
 CI (`.github/workflows/ci.yml`) runs the core tests on Linux and builds + tests the app on a macOS runner.
+
+## What's new in 1.0.1
+
+- **Reminders tab**: native reminders that work on their own, independent of periods. Lists with colours and icons, smart lists (Today, Scheduled, Flagged, All, Completed) with live counts, due dates and times, early alerts, repeats, priority, flags, notes, links, checklists, search, and natural-language quick add. Notifications have Complete and Snooze actions.
+- **Reminders widgets**: an interactive widget (small, medium, large, and Lock Screen) where the checkmark completes a reminder in place, an optional list picker, and a New Reminder widget.
+- **Shortcuts**: Add Reminder and Show Reminders actions.
+- **Credits and copyright** in Settings.
+- Polish and performance work across the app.
+
+## Credits
+
+© 2026 Caden Erwin and Workable Projects. All rights reserved.
+Code: built by Claude.
 
 ## Status
 

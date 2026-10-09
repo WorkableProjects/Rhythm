@@ -14,7 +14,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let link = response.notification.request.content.userInfo["deepLink"] as? String,
+        let userInfo = response.notification.request.content.userInfo
+        if let id = (userInfo["reminderID"] as? String).flatMap(UUID.init(uuidString:)) {
+            switch response.actionIdentifier {
+            case ReminderNotifications.completeActionIdentifier:
+                await ReminderActions.complete(id)
+                return
+            case ReminderNotifications.snoozeActionIdentifier:
+                await ReminderActions.snooze(id)
+                return
+            default:
+                break
+            }
+        }
+        guard let link = userInfo["deepLink"] as? String,
               let url = URL(string: link) else { return }
         await MainActor.run {
             UIApplication.shared.open(url)

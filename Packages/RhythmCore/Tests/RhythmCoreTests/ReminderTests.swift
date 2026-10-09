@@ -81,9 +81,9 @@ final class ReminderPlannerTests: XCTestCase {
     func testPlanIsBounded() {
         let (config, template) = Fixtures.weekConfiguration()
         let reminders = template.periods.map { ReminderDefinition(periodID: $0.id, title: $0.title, trigger: .beforeStart(minutes: 2)) }
-        let longPlanner = ReminderPlanner(engine: ScheduleEngine(calendar: calendar), horizonDays: 30, maximumRequests: 60)
+        let longPlanner = ReminderPlanner(engine: ScheduleEngine(calendar: calendar), horizonDays: 30, maximumRequests: 44)
         let plan = longPlanner.plan(reminders: reminders, configuration: config, now: Fixtures.instant(Fixtures.friday, 6, 0))
-        XCTAssertEqual(plan.count, 60)
+        XCTAssertEqual(plan.count, 44)
         XCTAssertEqual(plan.map(\.fireDate), plan.map(\.fireDate).sorted())
     }
 
