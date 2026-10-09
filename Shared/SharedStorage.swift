@@ -23,5 +23,10 @@ enum SharedStorage {
         containerURL?.appendingPathComponent("WidgetSnapshot.json", isDirectory: false)
     }
 
+    static var remindersSnapshotURL: URL? {
+        containerURL?.appendingPathComponent("RemindersWidgetSnapshot.json", isDirectory: false)
+    }
+
     static let widgetKind = "RhythmScheduleWidget"
+    static let remindersWidgetKind = "RhythmRemindersWidget"
 }

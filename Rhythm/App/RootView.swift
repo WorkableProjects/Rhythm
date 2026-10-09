@@ -20,6 +20,9 @@ struct RootView: View {
                     Tab("Today", systemImage: "clock", value: AppTab.today) {
                         TodayView()
                     }
+                    Tab("Reminders", systemImage: "bell.fill", value: AppTab.reminders) {
+                        RemindersView()
+                    }
                     Tab("Schedule", systemImage: "calendar", value: AppTab.schedule) {
                         ScheduleView()
                     }

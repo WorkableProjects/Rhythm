@@ -45,10 +45,23 @@ extension ScheduleOverride {
 }
 
 extension ReminderRule {
-    /// `nil` when the rule is orphaned or its trigger data is invalid.
+    /// `nil` when trigger data is invalid.
     var definition: ReminderDefinition? {
-        guard let period, let trigger else { return nil }
-        return ReminderDefinition(id: id, periodID: period.id, title: title, body: body, trigger: trigger, isEnabled: isEnabled)
+        guard let trigger else { return nil }
+        return ReminderDefinition(
+            id: id,
+            periodID: period?.id,
+            title: title,
+            body: body,
+            trigger: trigger,
+            isEnabled: isEnabled,
+            status: status,
+            priority: priority,
+            dueDate: dueDate,
+            dueTime: dueTime,
+            snoozedUntil: snoozedUntil,
+            completedAt: completedAt
+        )
     }
 }
 

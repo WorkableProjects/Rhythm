@@ -1,11 +1,41 @@
 import Foundation
 
-/// When a schedule-linked reminder fires.
+/// Status of a reminder item.
+public enum ReminderStatus: String, Hashable, Codable, Sendable, CaseIterable {
+    case active
+    case snoozed
+    case completed
+
+    public var displayName: String {
+        switch self {
+        case .active: "Active"
+        case .snoozed: "Snoozed"
+        case .completed: "Completed"
+        }
+    }
+}
+
+/// Priority level for a reminder.
+public enum ReminderPriority: String, Hashable, Codable, Sendable, CaseIterable {
+    case low, medium, high
+
+    public var displayName: String {
+        switch self {
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        }
+    }
+}
+
+/// When a reminder fires.
 public enum ReminderTrigger: Hashable, Codable, Sendable {
     /// Every time the linked period occurs, `minutes` before it starts (0 = at the start).
     case beforeStart(minutes: Int)
     /// Once, at a specific local date and time (e.g. "Turn in worksheet").
     case oneOff(date: LocalDate, time: ClockTime)
+    /// Standalone reminder with optional date and time.
+    case standalone(date: LocalDate?, time: ClockTime?)
 
     public var summary: String {
         switch self {
@@ -15,27 +45,59 @@ public enum ReminderTrigger: Hashable, Codable, Sendable {
             return "\(minutes) min before"
         case .oneOff(let date, let time):
             return "Once on \(date.key) at \(time)"
+        case .standalone(let date, let time):
+            if let date {
+                if let time {
+                    return "\(date.key) at \(time)"
+                }
+                return "Due \(date.key)"
+            }
+            return "No due date"
         }
     }
 }
 
-/// A reminder attached to a period. Rhythm only supports schedule-linked reminders;
-/// it is not a general-purpose task manager.
+/// A reminder item, which can be standalone or linked to a schedule period.
 public struct ReminderDefinition: Identifiable, Hashable, Codable, Sendable {
     public var id: UUID
-    public var periodID: UUID
+    public var periodID: UUID?
     public var title: String
     public var body: String?
     public var trigger: ReminderTrigger
     public var isEnabled: Bool
+    public var status: ReminderStatus
+    public var priority: ReminderPriority
+    public var dueDate: LocalDate?
+    public var dueTime: ClockTime?
+    public var snoozedUntil: Date?
+    public var completedAt: Date?
 
-    public init(id: UUID = UUID(), periodID: UUID, title: String, body: String? = nil, trigger: ReminderTrigger, isEnabled: Bool = true) {
+    public init(
+        id: UUID = UUID(),
+        periodID: UUID? = nil,
+        title: String,
+        body: String? = nil,
+        trigger: ReminderTrigger,
+        isEnabled: Bool = true,
+        status: ReminderStatus = .active,
+        priority: ReminderPriority = .medium,
+        dueDate: LocalDate? = nil,
+        dueTime: ClockTime? = nil,
+        snoozedUntil: Date? = nil,
+        completedAt: Date? = nil
+    ) {
         self.id = id
         self.periodID = periodID
         self.title = title
         self.body = body
         self.trigger = trigger
         self.isEnabled = isEnabled
+        self.status = status
+        self.priority = priority
+        self.dueDate = dueDate
+        self.dueTime = dueTime
+        self.snoozedUntil = snoozedUntil
+        self.completedAt = completedAt
     }
 }
 
@@ -73,29 +135,37 @@ public struct ReminderPlanner: Sendable {
     /// appear in the resolved day, so deleted or disabled periods and no-school overrides are
     /// suppressed automatically.
     public func plan(reminders: [ReminderDefinition], configuration: ScheduleConfiguration, now: Date) -> [PlannedNotification] {
-        let enabled = reminders.filter(\.isEnabled)
-        guard !enabled.isEmpty else { return [] }
+        let activeReminders = reminders.filter { $0.isEnabled && $0.status == .active }
+        guard !activeReminders.isEmpty else { return [] }
 
         let today = LocalDate(now, calendar: engine.calendar)
         let days = engine.resolveDays(from: today, count: horizonDays, configuration: configuration)
         let daysByDate = Dictionary(days.map { ($0.date, $0) }, uniquingKeysWith: { first, _ in first })
 
         var planned: [PlannedNotification] = []
-        for reminder in enabled {
+        for reminder in activeReminders {
             switch reminder.trigger {
             case .beforeStart(let minutes):
+                guard let periodID = reminder.periodID else { continue }
                 for day in days {
-                    guard let period = day.periods.first(where: { $0.id == reminder.periodID }) else { continue }
+                    guard let period = day.periods.first(where: { $0.id == periodID }) else { continue }
                     let fireDate = period.startDate.addingTimeInterval(-TimeInterval(max(0, minutes) * 60))
                     guard fireDate > now else { continue }
-                    planned.append(make(reminder, period: period, date: day.date, fireDate: fireDate))
+                    planned.append(make(reminder, periodID: periodID, periodTitle: period.title, date: day.date, fireDate: fireDate))
                 }
             case .oneOff(let date, let time):
+                guard let periodID = reminder.periodID else { continue }
                 let day = daysByDate[date] ?? engine.resolveDay(date, configuration: configuration)
-                guard let period = day.periods.first(where: { $0.id == reminder.periodID }),
+                guard let period = day.periods.first(where: { $0.id == periodID }),
                       let fireDate = date.date(at: time, in: engine.calendar),
                       fireDate > now else { continue }
-                planned.append(make(reminder, period: period, date: date, fireDate: fireDate))
+                planned.append(make(reminder, periodID: periodID, periodTitle: period.title, date: date, fireDate: fireDate))
+            case .standalone(let dateOpt, let timeOpt):
+                if let date = dateOpt ?? reminder.dueDate, let time = timeOpt ?? reminder.dueTime ?? ClockTime(hour: 9, minute: 0) {
+                    if let fireDate = date.date(at: time, in: engine.calendar), fireDate > now {
+                        planned.append(make(reminder, periodID: reminder.id, periodTitle: "Reminder", date: date, fireDate: fireDate))
+                    }
+                }
             }
         }
 
@@ -103,25 +173,25 @@ public struct ReminderPlanner: Sendable {
         return Array(planned.prefix(maximumRequests))
     }
 
-    private func make(_ reminder: ReminderDefinition, period: ResolvedPeriod, date: LocalDate, fireDate: Date) -> PlannedNotification {
-        let title = reminder.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? period.title : reminder.title
+    private func make(_ reminder: ReminderDefinition, periodID: UUID, periodTitle: String, date: LocalDate, fireDate: Date) -> PlannedNotification {
+        let title = reminder.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? periodTitle : reminder.title
         let body: String
         if let custom = reminder.body?.trimmingCharacters(in: .whitespacesAndNewlines), !custom.isEmpty {
             body = custom
         } else {
-            body = period.title
+            body = periodTitle
         }
-        let fingerprint = Self.fingerprint("\(title)|\(body)|\(Int(fireDate.timeIntervalSince1970))|\(period.id)")
+        let fingerprint = Self.fingerprint("\(title)|\(body)|\(Int(fireDate.timeIntervalSince1970))|\(periodID)")
         let id = "\(PlannedNotification.identifierPrefix)\(reminder.id.uuidString).\(date.key).\(fingerprint)"
         return PlannedNotification(
             id: id,
             ruleID: reminder.id,
-            periodID: period.id,
+            periodID: periodID,
             date: date,
             title: title,
             body: body,
             fireDate: fireDate,
-            deepLink: DeepLink.period(id: period.id, date: date).url
+            deepLink: DeepLink.period(id: periodID, date: date).url
         )
     }
 

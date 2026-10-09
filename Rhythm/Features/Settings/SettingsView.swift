@@ -34,6 +34,15 @@ struct SettingsView: View {
                 LabeledContent("Version", value: Self.versionString)
                 NavigationLink("Privacy") { PrivacyView() }
             }
+            Section("Credits") {
+                LabeledContent("Idea", value: "Caden Erwin")
+                LabeledContent("Workable Projects Coding", value: "Claude/Anthropic, Gemini/Alphabet")
+            }
+            Section("Copyright") {
+                Text("Copyright © 2026 Caden Erwin & Workable Projects. All rights reserved.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -299,7 +308,7 @@ struct SettingsView: View {
 
     static var versionString: String {
         let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0.1"
         let build = info?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
     }

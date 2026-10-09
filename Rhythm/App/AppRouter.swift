@@ -3,7 +3,7 @@ import Observation
 import RhythmCore
 
 enum AppTab: Hashable {
-    case today, schedule, quicklinks
+    case today, reminders, schedule, quicklinks
 }
 
 /// A period presented as a detail sheet, e.g. from a widget, notification, or timeline tap.
@@ -44,6 +44,8 @@ final class AppRouter {
             selectedTab = .today
             todayDate = date
             if let date { presentedPeriod = PeriodPresentation(periodID: id, date: date) }
+        case .reminders:
+            selectedTab = .reminders
         case .schedule(let date):
             selectedTab = .schedule
             scheduleDate = date

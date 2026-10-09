@@ -135,13 +135,13 @@ final class ScheduleOverride {
     }
 }
 
-/// A schedule-linked reminder for a period.
+/// A schedule-linked or standalone reminder item.
 @Model
 final class ReminderRule {
     @Attribute(.unique) var id: UUID
     var title: String
     var body: String?
-    /// `beforeStart` or `oneOff`.
+    /// `beforeStart`, `oneOff`, or `standalone`.
     var triggerKindRaw: String
     var offsetMinutes: Int
     var oneOffDateKey: String?
@@ -150,7 +150,27 @@ final class ReminderRule {
     var createdAt: Date
     var period: SchedulePeriod?
 
-    init(id: UUID = UUID(), title: String, body: String? = nil, trigger: ReminderTrigger, isEnabled: Bool = true, now: Date = .now) {
+    var statusRaw: String?
+    var priorityRaw: String?
+    var dueDateKey: String?
+    var dueMinute: Int?
+    var snoozedUntil: Date?
+    var completedAt: Date?
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        body: String? = nil,
+        trigger: ReminderTrigger,
+        isEnabled: Bool = true,
+        status: ReminderStatus = .active,
+        priority: ReminderPriority = .medium,
+        dueDate: LocalDate? = nil,
+        dueTime: ClockTime? = nil,
+        snoozedUntil: Date? = nil,
+        completedAt: Date? = nil,
+        now: Date = .now
+    ) {
         self.id = id
         let fields = Self.storedFields(for: trigger)
         self.title = title
@@ -160,6 +180,12 @@ final class ReminderRule {
         self.oneOffDateKey = fields.dateKey
         self.oneOffMinute = fields.minute
         self.isEnabled = isEnabled
+        self.statusRaw = status.rawValue
+        self.priorityRaw = priority.rawValue
+        self.dueDateKey = dueDate?.key
+        self.dueMinute = dueTime?.minutesAfterMidnight
+        self.snoozedUntil = snoozedUntil
+        self.completedAt = completedAt
         self.createdAt = now
     }
 
@@ -167,16 +193,41 @@ final class ReminderRule {
         switch trigger {
         case .beforeStart(let minutes): ("beforeStart", minutes, nil, nil)
         case .oneOff(let date, let time): ("oneOff", 0, date.key, time.minutesAfterMidnight)
+        case .standalone(let date, let time): ("standalone", 0, date?.key, time?.minutesAfterMidnight)
         }
     }
 
-    /// Returns `nil` when stored one-off data is invalid; such rules are skipped, never crash.
+    var status: ReminderStatus {
+        get { statusRaw.flatMap(ReminderStatus.init(rawValue:)) ?? .active }
+        set { statusRaw = newValue.rawValue }
+    }
+
+    var priority: ReminderPriority {
+        get { priorityRaw.flatMap(ReminderPriority.init(rawValue:)) ?? .medium }
+        set { priorityRaw = newValue.rawValue }
+    }
+
+    var dueDate: LocalDate? {
+        get { dueDateKey.flatMap(LocalDate.init(key:)) }
+        set { dueDateKey = newValue?.key }
+    }
+
+    var dueTime: ClockTime? {
+        get { dueMinute.map { ClockTime(minutesAfterMidnight: $0) } }
+        set { dueMinute = newValue?.minutesAfterMidnight }
+    }
+
+    /// Returns `nil` when stored trigger data is invalid; such rules are skipped, never crash.
     var trigger: ReminderTrigger? {
         get {
             switch triggerKindRaw {
             case "oneOff":
                 guard let key = oneOffDateKey, let date = LocalDate(key: key), let minute = oneOffMinute else { return nil }
                 return .oneOff(date: date, time: ClockTime(minutesAfterMidnight: minute))
+            case "standalone":
+                let date = oneOffDateKey.flatMap(LocalDate.init(key:))
+                let time = oneOffMinute.map { ClockTime(minutesAfterMidnight: $0) }
+                return .standalone(date: date, time: time)
             default:
                 return .beforeStart(minutes: offsetMinutes)
             }

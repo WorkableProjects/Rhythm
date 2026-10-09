@@ -41,30 +41,75 @@ struct TodayRemindersView: View {
         .sorted { $0.fireDate < $1.fireDate }
     }
 
+    private var activeRules: [ReminderRule] {
+        rules.filter { $0.status == .active }
+    }
+
     var body: some View {
-        let items = items
-        if !items.isEmpty {
+        let active = activeRules
+        if !active.isEmpty {
             VStack(alignment: .leading, spacing: RhythmSpacing.sm) {
-                Text("Reminders")
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
+                HStack {
+                    Text("Reminders")
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    Button("See All") {
+                        model.router.selectedTab = .reminders
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(Color.accentColor)
+                }
+
                 VStack(alignment: .leading, spacing: RhythmSpacing.md) {
-                    ForEach(items.prefix(4)) { item in
+                    ForEach(active.prefix(5)) { rule in
                         HStack(spacing: RhythmSpacing.md) {
-                            Image(systemName: "bell")
-                                .foregroundStyle(.secondary)
-                                .accessibilityHidden(true)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.title).font(.subheadline.weight(.semibold))
-                                Text(item.periodTitle).font(.caption).foregroundStyle(.secondary)
+                            Button {
+                                withAnimation {
+                                    model.commit {
+                                        model.repository.setReminderStatus(rule, status: .completed)
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
                             }
+                            .buttonStyle(.plain)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rule.title)
+                                    .font(.subheadline.weight(.semibold))
+                                if let period = rule.period {
+                                    Text(period.title)
+                                        .font(.caption)
+                                        .foregroundStyle(.tint)
+                                } else if let date = rule.dueDate {
+                                    Text(date.key)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
                             Spacer(minLength: 0)
-                            Text(item.fireDate.shortTime)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
+
+                            Menu {
+                                Button("Snooze 15m") {
+                                    model.commit {
+                                        let snoozedUntil = Date.now.addingTimeInterval(15 * 60)
+                                        model.repository.setReminderStatus(rule, status: .snoozed, snoozedUntil: snoozedUntil)
+                                    }
+                                }
+                                Button("Mark Complete") {
+                                    model.commit {
+                                        model.repository.setReminderStatus(rule, status: .completed)
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        .accessibilityElement(children: .combine)
                     }
                 }
                 .padding(RhythmSpacing.lg)

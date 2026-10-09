@@ -181,12 +181,76 @@ final class ScheduleRepository {
                 rule.body = definition.body
                 rule.trigger = definition.trigger
                 rule.isEnabled = definition.isEnabled
+                rule.status = definition.status
+                rule.priority = definition.priority
+                rule.dueDate = definition.dueDate
+                rule.dueTime = definition.dueTime
+                rule.snoozedUntil = definition.snoozedUntil
+                rule.completedAt = definition.completedAt
             } else {
-                let rule = ReminderRule(id: definition.id, title: definition.title, body: definition.body,
-                                        trigger: definition.trigger, isEnabled: definition.isEnabled)
+                let rule = ReminderRule(
+                    id: definition.id,
+                    title: definition.title,
+                    body: definition.body,
+                    trigger: definition.trigger,
+                    isEnabled: definition.isEnabled,
+                    status: definition.status,
+                    priority: definition.priority,
+                    dueDate: definition.dueDate,
+                    dueTime: definition.dueTime,
+                    snoozedUntil: definition.snoozedUntil,
+                    completedAt: definition.completedAt
+                )
                 period.reminders.append(rule)
             }
         }
+    }
+
+    // MARK: Standalone Reminders & Lifecycle
+
+    @discardableResult
+    func createReminder(
+        title: String,
+        body: String? = nil,
+        trigger: ReminderTrigger = .standalone(date: nil, time: nil),
+        priority: ReminderPriority = .medium,
+        dueDate: LocalDate? = nil,
+        dueTime: ClockTime? = nil,
+        period: SchedulePeriod? = nil
+    ) -> ReminderRule {
+        let rule = ReminderRule(
+            title: title,
+            body: body,
+            trigger: trigger,
+            isEnabled: true,
+            status: .active,
+            priority: priority,
+            dueDate: dueDate,
+            dueTime: dueTime
+        )
+        if let period {
+            period.reminders.append(rule)
+        } else {
+            context.insert(rule)
+        }
+        return rule
+    }
+
+    func setReminderStatus(_ reminder: ReminderRule, status: ReminderStatus, snoozedUntil: Date? = nil) {
+        reminder.status = status
+        if status == .completed {
+            reminder.completedAt = .now
+            reminder.snoozedUntil = nil
+        } else if status == .snoozed {
+            reminder.snoozedUntil = snoozedUntil ?? Date.now.addingTimeInterval(15 * 60)
+        } else {
+            reminder.snoozedUntil = nil
+            reminder.completedAt = nil
+        }
+    }
+
+    func deleteReminder(_ reminder: ReminderRule) {
+        context.delete(reminder)
     }
 
     // MARK: Overrides

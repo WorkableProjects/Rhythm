@@ -4,6 +4,7 @@ import WidgetKit
 @main
 struct RhythmWidgetsBundle: WidgetBundle {
     var body: some Widget {
+        RemindersWidget()
         ScheduleWidget()
         RhythmLiveActivityWidget()
     }

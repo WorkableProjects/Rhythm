@@ -146,6 +146,7 @@ final class AppModel {
         let engine = engine
         let now = now()
         widgetStore.update(configuration: configuration, engine: engine, accentKey: preferences.accent.rawValue, now: now)
+        widgetStore.updateReminders(repository: repository, accentKey: preferences.accent.rawValue, now: now)
         notifications.reconcile(reminders: repository.reminderDefinitions(), configuration: configuration,
                                 engine: engine, featureEnabled: preferences.remindersEnabled)
         reconcileLiveActivity(engine: engine, now: now)

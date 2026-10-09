@@ -34,10 +34,52 @@ final class WidgetSnapshotStore {
         }
     }
 
+    func updateReminders(repository: ScheduleRepository, accentKey: String, now: Date = .now) {
+        guard let url = SharedStorage.remindersSnapshotURL else { return }
+        let allRules = repository.reminders()
+        let items = allRules.compactMap { rule -> RemindersWidgetItem? in
+            guard rule.isEnabled else { return nil }
+            let periodTitle = rule.period?.title
+            let formattedDueDate: String? = {
+                if let date = rule.dueDate {
+                    if let time = rule.dueTime {
+                        return "\(date.key) at \(time)"
+                    }
+                    return date.key
+                }
+                return nil
+            }()
+            return RemindersWidgetItem(
+                id: rule.id,
+                title: rule.title,
+                body: rule.body,
+                periodTitle: periodTitle,
+                statusRaw: rule.status.rawValue,
+                priorityRaw: rule.priority.rawValue,
+                formattedDueDate: formattedDueDate,
+                snoozedUntilDate: rule.snoozedUntil
+            )
+        }
+        let snapshot = RemindersWidgetSnapshot(generatedAt: now, accentKey: accentKey, items: items)
+        do {
+            let data = try RemindersWidgetSnapshotCodec.encode(snapshot)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: url, options: [.atomic])
+            WidgetCenter.shared.reloadTimelines(ofKind: SharedStorage.remindersWidgetKind)
+        } catch {
+            // Widgets fall back safely
+        }
+    }
+
     func removeSnapshot() {
-        guard let url = SharedStorage.snapshotURL else { return }
-        try? FileManager.default.removeItem(at: url)
+        if let url = SharedStorage.snapshotURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        if let remindersURL = SharedStorage.remindersSnapshotURL {
+            try? FileManager.default.removeItem(at: remindersURL)
+        }
         lastWrittenSignature = nil
         WidgetCenter.shared.reloadTimelines(ofKind: SharedStorage.widgetKind)
+        WidgetCenter.shared.reloadTimelines(ofKind: SharedStorage.remindersWidgetKind)
     }
 }
