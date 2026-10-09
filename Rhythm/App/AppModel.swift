@@ -1,3 +1,4 @@
+import BackgroundTasks
 import Foundation
 import Observation
 import RhythmCore
@@ -36,6 +37,7 @@ final class AppModel {
     /// normal use. Time keeps moving from the given instant.
     private let clockOffset: TimeInterval
     @ObservationIgnored private var boundaryTask: Task<Void, Never>? = nil
+    @ObservationIgnored private var liveActivityTask: Task<Void, Never>? = nil
     @ObservationIgnored private var observerTasks: [Task<Void, Never>] = []
 
     init(loaded: PersistenceController.Loaded, arguments: [String] = ProcessInfo.processInfo.arguments) {
@@ -110,6 +112,7 @@ final class AppModel {
         boundaryTask?.cancel()
         boundaryTask = nil
         widgetStore.update(configuration: configuration, engine: engine, accentKey: preferences.accent.rawValue, now: now())
+        scheduleBackgroundRefresh()
     }
 
     /// Rebuilds the engine input from the store.
@@ -145,24 +148,74 @@ final class AppModel {
         widgetStore.update(configuration: configuration, engine: engine, accentKey: preferences.accent.rawValue, now: now)
         notifications.reconcile(reminders: repository.reminderDefinitions(), configuration: configuration,
                                 engine: engine, featureEnabled: preferences.remindersEnabled)
-        let snapshot = engine.snapshot(at: now, configuration: configuration)
-        let liveActivitiesEnabled = preferences.liveActivitiesEnabled
-        Task { await liveActivities.reconcile(snapshot: snapshot, enabled: liveActivitiesEnabled) }
-        scheduleBoundaryRefresh(after: snapshot)
+        reconcileLiveActivity(engine: engine, now: now)
+        scheduleBoundaryRefresh(after: now)
     }
 
-    /// While Rhythm is in the foreground, refresh the Live Activity at the next period boundary.
-    /// In the background Rhythm relies on notifications, WidgetKit timelines, and system-rendered
-    /// countdowns instead of keeping a timer alive.
-    private func scheduleBoundaryRefresh(after snapshot: ScheduleSnapshot) {
+    /// Serializes Live Activity reconciliation so overlapping refreshes can't start two activities.
+    @discardableResult
+    private func reconcileLiveActivity(engine: ScheduleEngine, now: Date) -> Task<Void, Never> {
+        let previous = liveActivityTask
+        let configuration = configuration
+        let enabled = preferences.liveActivitiesEnabled
+        let task = Task { [weak self] in
+            await previous?.value
+            await self?.liveActivities.reconcile(engine: engine, configuration: configuration, now: now, enabled: enabled)
+        }
+        liveActivityTask = task
+        return task
+    }
+
+    /// The next bell (or the start of the next day's Live Activity window) after `date`.
+    func nextLiveBoundary(after date: Date) -> Date? {
+        let today = resolvedDay(LocalDate(date, calendar: calendar))
+        let edges = ScheduleSegments.segments(for: today).flatMap { [$0.startDate, $0.endDate] }
+        if let next = edges.filter({ $0 > date }).min() { return next }
+        return ScheduleSegments.nextAutomaticStart(after: date, engine: engine, configuration: configuration)?.current.startDate
+    }
+
+    /// While Rhythm is in the foreground, refresh at every bell so the Today screen's integrations
+    /// and the Live Activity switch exactly on time. In the background, Rhythm relies on scheduled
+    /// Live Activities, stale-date handover, WidgetKit timelines, and background refresh instead of
+    /// keeping a timer alive.
+    private func scheduleBoundaryRefresh(after now: Date) {
         boundaryTask?.cancel()
-        guard let next = snapshot.nextTransition else { return }
-        let delay = max(1, next.timeIntervalSince(snapshot.now) + 0.5)
+        guard let next = nextLiveBoundary(after: now) else { return }
+        let delay = max(1, next.timeIntervalSince(now) + 0.5)
         boundaryTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
             self?.refreshIntegrations()
         }
+    }
+
+    // MARK: Background refresh
+
+    /// Must match `BGTaskSchedulerPermittedIdentifiers` in the Info.plist.
+    nonisolated static var backgroundRefreshIdentifier: String {
+        (Bundle.main.bundleIdentifier ?? "rhythm") + ".refresh"
+    }
+
+    /// Asks iOS to wake Rhythm at the next bell. iOS decides the actual time (it may be later or
+    /// skipped), so this improves Live Activity updates but isn't relied on for correctness.
+    func scheduleBackgroundRefresh() {
+        guard let next = nextLiveBoundary(after: now()) else { return }
+        let request = BGAppRefreshTaskRequest(identifier: Self.backgroundRefreshIdentifier)
+        request.earliestBeginDate = next
+        try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// Runs when iOS grants a background refresh: updates every integration, then schedules the next.
+    func handleBackgroundRefresh() async {
+        calendar = .autoupdatingCurrent
+        reload()
+        let engine = engine
+        let now = now()
+        widgetStore.update(configuration: configuration, engine: engine, accentKey: preferences.accent.rawValue, now: now)
+        notifications.reconcile(reminders: repository.reminderDefinitions(), configuration: configuration,
+                                engine: engine, featureEnabled: preferences.remindersEnabled)
+        await reconcileLiveActivity(engine: engine, now: now).value
+        scheduleBackgroundRefresh()
     }
 
     private func handleClockChange() {
@@ -192,6 +245,13 @@ final class AppModel {
 
     func insertSample() {
         commit { repository.insertSampleTimetable() }
+    }
+
+    /// Loads the school's bell schedule (see `BellSchedulePreset`) and finishes onboarding.
+    func applyBellSchedule(lunch: LunchGroup) {
+        if commit({ repository.insertBellSchedule(lunch: lunch) }) {
+            preferences.hasCompletedOnboarding = true
+        }
     }
 
     func removeSample() {

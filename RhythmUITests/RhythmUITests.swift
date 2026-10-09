@@ -10,14 +10,14 @@ final class RhythmUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(extraArguments: [String] = []) {
+    private func launch(clock: String = "2026-10-09T09:30:00", extraArguments: [String] = []) {
         app = XCUIApplication()
-        app.launchArguments = ["-RhythmUITesting", "-RhythmClock", "2026-10-09T09:30:00"] + extraArguments
+        app.launchArguments = ["-RhythmUITesting", "-RhythmClock", clock] + extraArguments
         app.launch()
     }
 
-    private func launchWithSample(extraArguments: [String] = []) {
-        launch(extraArguments: extraArguments)
+    private func launchWithSample(clock: String = "2026-10-09T09:30:00", extraArguments: [String] = []) {
+        launch(clock: clock, extraArguments: extraArguments)
         app.buttons["exploreSampleButton"].tap()
         XCTAssertTrue(app.otherElements["liveStatus"].waitForExistence(timeout: 5) || app.staticTexts["countdown"].waitForExistence(timeout: 5))
     }
@@ -41,6 +41,24 @@ final class RhythmUITests: XCTestCase {
 
         app.buttons["removeSampleButton"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["scheduleNeeded"].waitForExistence(timeout: 5))
+    }
+
+    func testPassingPeriodShowsTimeUntilNextPeriod() {
+        // Biology ends 9:55 and Algebra II starts 10:00 in the sample schedule.
+        launchWithSample(clock: "2026-10-09T09:57:00")
+        let label = liveStatusLabel
+        XCTAssertTrue(label.hasPrefix("Passing Period."), label)
+        XCTAssertTrue(label.contains("Algebra II starts in"), label)
+    }
+
+    func testBellScheduleFromOnboarding() {
+        launch()
+        app.buttons["useBellScheduleButton"].tap()
+        app.buttons["A Lunch"].firstMatch.tap()
+        // Friday 9:30 is the passing period between Period 1 (ends 9:28) and Period 2 (9:34).
+        let label = liveStatusLabel
+        XCTAssertTrue(label.hasPrefix("Passing Period."), label)
+        XCTAssertTrue(label.contains("Period 2"), label)
     }
 
     // MARK: Creating a timetable

@@ -62,6 +62,18 @@ final class RepositoryTests: XCTestCase {
         XCTAssertEqual(snapshot.activePeriod?.title, "Biology")
     }
 
+    func testBellScheduleAssignsWeekdays() throws {
+        repository.insertBellSchedule(lunch: .b)
+        try repository.save()
+        let configuration = repository.configuration()
+        XCTAssertEqual(configuration.templates.count, 4)
+        let name = { (weekday: Weekday) in configuration.weekdayAssignments[weekday].flatMap { configuration.templates[$0]?.name } }
+        XCTAssertEqual(name(.monday), BellSchedulePreset.regularName)
+        XCTAssertEqual(name(.tuesday), BellSchedulePreset.advisoryName)
+        XCTAssertEqual(name(.friday), BellSchedulePreset.regularName)
+        XCTAssertNil(name(.saturday))
+    }
+
     func testWeekdayHasOnlyOneTemplate() throws {
         let a = repository.createTemplate(name: "A", weekdays: [.monday])
         let b = repository.createTemplate(name: "B")

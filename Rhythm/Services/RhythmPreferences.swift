@@ -71,8 +71,9 @@ final class RhythmPreferences {
         self.defaults = defaults
         appearance = AppearancePreference(rawValue: defaults.string(forKey: Key.appearance) ?? "") ?? .system
         accent = RhythmAccent(key: defaults.string(forKey: Key.accent))
-        // Live Activities are off until the user opts in, so the feature can be explained first.
-        liveActivitiesEnabled = defaults.object(forKey: Key.liveActivities) as? Bool ?? false
+        // On by default so the school day appears on the Lock Screen without any setup. iOS's own
+        // Live Activities setting still applies, and the user can turn it off in Settings.
+        liveActivitiesEnabled = defaults.object(forKey: Key.liveActivities) as? Bool ?? true
         remindersEnabled = defaults.object(forKey: Key.reminders) as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: Key.onboarding)
         hasSeenLiveActivityExplanation = defaults.bool(forKey: Key.liveActivityExplained)
@@ -82,7 +83,7 @@ final class RhythmPreferences {
     func reset() {
         appearance = .system
         accent = .system
-        liveActivitiesEnabled = false
+        liveActivitiesEnabled = true
         remindersEnabled = true
         hasCompletedOnboarding = false
         hasSeenLiveActivityExplanation = false

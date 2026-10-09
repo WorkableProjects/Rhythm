@@ -1,3 +1,4 @@
+import RhythmCore
 import SwiftUI
 
 /// A short first-run introduction. No permission prompts here: notifications and Live
@@ -5,6 +6,7 @@ import SwiftUI
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @State private var isCreatingTemplate = false
+    @State private var isChoosingLunch = false
 
     var body: some View {
         // Scrolls so every control stays reachable at accessibility text sizes.
@@ -49,12 +51,28 @@ struct OnboardingView: View {
 
             VStack(spacing: RhythmSpacing.md) {
                 Button {
-                    isCreatingTemplate = true
+                    isChoosingLunch = true
                 } label: {
-                    Text("Set Up My Schedule")
+                    Text("Use School Bell Schedule")
                         .frame(maxWidth: .infinity, minHeight: RhythmLayout.minimumTouchTarget)
                 }
                 .buttonStyle(.glassProminent)
+                .accessibilityIdentifier("useBellScheduleButton")
+                .confirmationDialog("Which lunch do you have?", isPresented: $isChoosingLunch, titleVisibility: .visible) {
+                    ForEach(LunchGroup.allCases) { lunch in
+                        Button(lunch.displayName) { model.applyBellSchedule(lunch: lunch) }
+                    }
+                } message: {
+                    Text("Adds the Mon/Wed/Fri and Tue/Thu schedules, plus Collaboration/Minimum Day and Finals for specific dates.")
+                }
+
+                Button {
+                    isCreatingTemplate = true
+                } label: {
+                    Text("Set Up My Own Schedule")
+                        .frame(maxWidth: .infinity, minHeight: RhythmLayout.minimumTouchTarget)
+                }
+                .buttonStyle(.glass)
                 .accessibilityIdentifier("setUpScheduleButton")
 
                 Button {

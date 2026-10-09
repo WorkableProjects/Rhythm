@@ -13,40 +13,46 @@ final class IntegrationMappingTests: XCTestCase {
 
     private let friday = LocalDate(year: 2026, month: 10, day: 9)
 
-    private func snapshot(_ hour: Int, _ minute: Int) -> ScheduleSnapshot {
+    private var day: ResolvedDay {
         let template = SampleTimetable.template()
         let configuration = ScheduleConfiguration(templates: [template], weekdayAssignments: [.friday: template.id])
+        return ScheduleEngine(calendar: calendar).resolveDay(friday, configuration: configuration)
+    }
+
+    private func activityState(_ hour: Int, _ minute: Int) -> RhythmActivityAttributes.ContentState? {
         let now = friday.date(at: ClockTime(hour: hour, minute: minute), in: calendar)!
-        return ScheduleEngine(calendar: calendar).snapshot(at: now, configuration: configuration)
+        return ScheduleSegments.liveFrame(at: now, day: day).map(LiveActivityCoordinator.contentState(for:))
     }
 
-    func testLiveActivityContentInPeriod() throws {
-        let state = try XCTUnwrap(LiveActivityCoordinator.contentState(for: snapshot(9, 30)))
-        XCTAssertEqual(state.phase, .inPeriod)
-        XCTAssertEqual(state.title, "Biology")
-        XCTAssertEqual(state.nextTitle, "Algebra II")
-        XCTAssertEqual(DeepLink(url: state.deepLink), .period(id: snapshot(9, 30).activePeriod!.id, date: friday))
+    func testLiveActivityContentInPeriodCarriesFollowingSegment() throws {
+        let state = try XCTUnwrap(activityState(9, 30))
+        XCTAssertEqual(state.current.kind, .period)
+        XCTAssertEqual(state.current.title, "Biology")
+        // Biology ends 9:55; Algebra II starts 10:00, so a passing period follows.
+        XCTAssertEqual(state.following?.kind, .passing)
+        XCTAssertEqual(state.following?.title, "Algebra II")
+        let biology = try XCTUnwrap(day.periods.first { $0.title == "Biology" })
+        XCTAssertEqual(DeepLink(url: state.deepLink), .period(id: biology.id, date: friday))
     }
 
-    func testLiveActivityContentFreeTimeAndUpcoming() throws {
-        let free = try XCTUnwrap(LiveActivityCoordinator.contentState(for: snapshot(11, 32)))
-        XCTAssertEqual(free.phase, .freeTime)
-        XCTAssertEqual(free.title, "World History")
+    func testLiveActivityContentDuringPassingAndBeforeSchool() throws {
+        let passing = try XCTUnwrap(activityState(9, 57))
+        XCTAssertEqual(passing.current.kind, .passing)
+        XCTAssertEqual(passing.current.title, "Algebra II")
+        XCTAssertEqual(passing.following?.kind, .period)
 
-        let early = try XCTUnwrap(LiveActivityCoordinator.contentState(for: snapshot(7, 30)))
-        XCTAssertEqual(early.phase, .upcoming)
-        XCTAssertNil(LiveActivityCoordinator.contentState(for: snapshot(5, 0)), "Too early to show an activity")
+        let early = try XCTUnwrap(activityState(7, 30))
+        XCTAssertEqual(early.current.kind, .beforeSchool)
+        XCTAssertNil(activityState(5, 0), "Too early to show an activity")
     }
 
-    func testNoLiveActivityAfterSchoolOrWithoutSchedule() {
-        XCTAssertNil(LiveActivityCoordinator.contentState(for: snapshot(16, 0)))
-        let empty = ScheduleEngine(calendar: calendar).snapshot(at: .now, configuration: .empty)
-        XCTAssertNil(LiveActivityCoordinator.contentState(for: empty))
+    func testNoLiveActivityAfterSchool() {
+        XCTAssertNil(activityState(16, 0))
     }
 
     func testLiveActivityPayloadIsWellUnderFourKilobytes() throws {
-        var state = try XCTUnwrap(LiveActivityCoordinator.contentState(for: snapshot(9, 30)))
-        state.title = String(repeating: "Advanced Placement Environmental Science ", count: 3)
+        var state = try XCTUnwrap(activityState(9, 30))
+        state.current.title = String(repeating: "Advanced Placement Environmental Science ", count: 3)
         let data = try JSONEncoder().encode(state)
         XCTAssertLessThan(data.count, 4096)
     }

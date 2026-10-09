@@ -30,7 +30,7 @@ final class WidgetSnapshotTests: XCTestCase {
 
     func testPayloadIsSmall() throws {
         let data = try WidgetSnapshotCodec.encode(makeSnapshot(at: Fixtures.instant(Fixtures.friday, 7, 0)))
-        XCTAssertLessThan(data.count, 8 * 1024)
+        XCTAssertLessThan(data.count, 32 * 1024)
     }
 
     func testMissingCorruptNewerAndStale() throws {
@@ -42,7 +42,7 @@ final class WidgetSnapshotTests: XCTestCase {
         XCTAssertEqual(WidgetSnapshotCodec.decode(try WidgetSnapshotCodec.encode(newer)).failure, .unsupportedVersion(2))
 
         let snapshot = makeSnapshot(at: Fixtures.instant(Fixtures.friday, 7, 0))
-        let later = Fixtures.instant(LocalDate(year: 2026, month: 10, day: 20), 9, 0)
+        let later = Fixtures.instant(LocalDate(year: 2026, month: 10, day: 30), 9, 0)
         XCTAssertTrue(snapshot.status(at: later, calendar: calendar).isStale)
     }
 

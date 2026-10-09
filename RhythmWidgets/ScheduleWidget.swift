@@ -88,7 +88,7 @@ struct ScheduleWidget: Widget {
         }
         .configurationDisplayName("Current Period")
         .description("The current period, time remaining, and what’s next.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryCircular, .accessoryInline])
     }
 }
 
@@ -102,12 +102,19 @@ struct ScheduleWidgetView: View {
             case .needsRefresh:
                 RefreshNeededView()
             case .status(let status):
-                if family == .systemMedium {
+                switch family {
+                case .systemMedium:
                     HStack(alignment: .top, spacing: 16) {
                         StatusSummaryView(status: status, now: entry.date)
                         DayListView(status: status, now: entry.date)
                     }
-                } else {
+                case .accessoryRectangular:
+                    AccessoryRectangularView(status: status, now: entry.date)
+                case .accessoryCircular:
+                    AccessoryCircularView(status: status, now: entry.date)
+                case .accessoryInline:
+                    AccessoryInlineView(status: status, now: entry.date)
+                default:
                     StatusSummaryView(status: status, now: entry.date)
                 }
             }
@@ -159,13 +166,14 @@ private struct StatusSummaryView: View {
                 }
             case .upcoming, .freeTime:
                 if let next = status.next {
-                    Text(next.title)
-                        .font(.headline)
-                        .lineLimit(2)
                     Spacer(minLength: 0)
+                    // "4:12 until Period 2"
                     Text(timerInterval: safeRange(now, next.startDate), countsDown: true)
                         .font(.title2.weight(.semibold))
                         .monospacedDigit()
+                    Text("until \(next.title)")
+                        .font(.headline)
+                        .lineLimit(2)
                     Text("Starts \(next.startDate.formatted(date: .omitted, time: .shortened))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -196,10 +204,103 @@ private struct StatusSummaryView: View {
         switch status.state {
         case .inProgress: "Now"
         case .upcoming: "Up Next"
-        case .freeTime: "Free Time"
+        case .freeTime: status.stateLabel
         case .dayComplete: "Today"
         case .noSchool: "Today"
         case .scheduleNeeded: "Rhythm"
+        }
+    }
+}
+
+// MARK: - Lock Screen widgets
+
+/// What a compact widget counts down to: the end of the active period, or the next start.
+private struct CompactStatus {
+    let title: String
+    let caption: String
+    let range: ClosedRange<Date>?
+
+    init(status: WidgetStatus, now: Date) {
+        switch status.state {
+        case .inProgress:
+            let active = status.active
+            title = active?.title ?? "In Progress"
+            caption = "Now"
+            range = active.map { safeRange($0.startDate, $0.endDate) }
+        case .upcoming, .freeTime:
+            title = status.next.map { "until \($0.title)" } ?? status.stateLabel
+            caption = status.stateLabel
+            range = status.next.map { safeRange(min(now, $0.startDate), $0.startDate) }
+        case .dayComplete, .noSchool:
+            title = status.state == .noSchool ? "No school" : "Done for today"
+            caption = status.next.map { "Next: \($0.title)" } ?? ""
+            range = nil
+        case .scheduleNeeded:
+            title = "Open Rhythm"
+            caption = "Set up your schedule"
+            range = nil
+        }
+    }
+}
+
+private struct AccessoryRectangularView: View {
+    let status: WidgetStatus
+    let now: Date
+
+    var body: some View {
+        let compact = CompactStatus(status: status, now: now)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(compact.caption)
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .widgetAccentable()
+            if let range = compact.range {
+                Text(timerInterval: range, countsDown: true)
+                    .font(.headline)
+                    .monospacedDigit()
+            }
+            Text(compact.title)
+                .font(.caption)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct AccessoryCircularView: View {
+    let status: WidgetStatus
+    let now: Date
+
+    var body: some View {
+        let compact = CompactStatus(status: status, now: now)
+        if let range = compact.range {
+            ProgressView(timerInterval: range, countsDown: true) {
+                EmptyView()
+            } currentValueLabel: {
+                Text(timerInterval: range, countsDown: true)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.5)
+            }
+            .progressViewStyle(.circular)
+            .accessibilityLabel(compact.title)
+        } else {
+            Image(systemName: "checkmark")
+                .accessibilityLabel(compact.title)
+        }
+    }
+}
+
+private struct AccessoryInlineView: View {
+    let status: WidgetStatus
+    let now: Date
+
+    var body: some View {
+        let compact = CompactStatus(status: status, now: now)
+        if let range = compact.range {
+            Text("\(Text(timerInterval: range, countsDown: true)) \(compact.title)")
+        } else {
+            Text(compact.title)
         }
     }
 }

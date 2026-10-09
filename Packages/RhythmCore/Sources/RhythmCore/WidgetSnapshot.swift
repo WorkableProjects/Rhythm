@@ -62,9 +62,10 @@ public struct WidgetSnapshot: Codable, Hashable, Sendable {
         self.days = days
     }
 
-    /// Builds a snapshot covering `horizonDays` days starting with the day containing `now`.
+    /// Builds a snapshot covering `horizonDays` days starting with the day containing `now`. Eight
+    /// days keeps widgets correct through a weekend or a long weekend even if Rhythm isn't opened.
     public static func make(engine: ScheduleEngine, configuration: ScheduleConfiguration, now: Date,
-                            accentKey: String, horizonDays: Int = 3) -> WidgetSnapshot {
+                            accentKey: String, horizonDays: Int = 8) -> WidgetSnapshot {
         let today = LocalDate(now, calendar: engine.calendar)
         let resolved = engine.resolveDays(from: today, count: max(1, horizonDays), configuration: configuration)
         let days = resolved.map { Day(date: $0.date, isSchoolDay: $0.isSchoolDay, periods: $0.periods.map(Period.init)) }
@@ -128,6 +129,17 @@ public struct WidgetStatus: Hashable, Sendable {
     public var todayPeriods: [WidgetSnapshot.Period]
     /// The snapshot no longer covers this instant; the app needs to be opened to refresh it.
     public var isStale: Bool
+
+    /// `true` during a short gap between two periods ("4:12 until Period 2").
+    public var isPassingPeriod: Bool {
+        guard state == .freeTime, let previous, let next else { return false }
+        return ScheduleSegments.isPassing(gap: next.startDate.timeIntervalSince(previous.endDate))
+    }
+
+    /// The label for the current state, distinguishing passing periods from longer free time.
+    public var stateLabel: String {
+        isPassingPeriod ? "Passing Period" : state.displayName
+    }
 
     public init(state: DayState, active: WidgetSnapshot.Period? = nil, next: WidgetSnapshot.Period? = nil,
                 previous: WidgetSnapshot.Period? = nil, nextIsToday: Bool = false,

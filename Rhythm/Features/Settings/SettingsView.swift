@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var alert: SettingsAlert?
     @State private var isConfirmingDeleteAll = false
     @State private var isExplainingLiveActivities = false
+    @State private var isChoosingBellScheduleLunch = false
 
     var body: some View {
         NavigationStack {
@@ -203,6 +204,18 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         Section {
+            Button("Load School Bell Schedule…") { isChoosingBellScheduleLunch = true }
+                .confirmationDialog("Which lunch do you have?", isPresented: $isChoosingBellScheduleLunch, titleVisibility: .visible) {
+                    ForEach(LunchGroup.allCases) { lunch in
+                        Button(lunch.displayName) {
+                            model.applyBellSchedule(lunch: lunch)
+                            alert = SettingsAlert(title: "Bell Schedule Added",
+                                                  message: "Mon/Wed/Fri and Tue/Thu now follow the school bell schedule. Use Change This Date in Schedule for collaboration, minimum, and finals days.")
+                        }
+                    }
+                } message: {
+                    Text("Adds the school's schedules and assigns them to weekdays. Your other schedules are kept.")
+                }
             Button("Export Timetable…") { prepareExport() }
             Button("Import Timetable…") { isImporting = true }
             if model.hasSampleData {

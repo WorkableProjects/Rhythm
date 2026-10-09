@@ -113,7 +113,7 @@ private struct GapRow: View {
         HStack(spacing: RhythmSpacing.sm) {
             Image(systemName: "ellipsis")
                 .accessibilityHidden(true)
-            Text("Free · \(CountdownFormat.short(gap))")
+            Text("\(ScheduleSegments.isPassing(gap: gap) ? "Passing" : "Free") · \(CountdownFormat.short(gap))")
             if isCurrent {
                 TagLabel(text: "Now", tint: .accentColor)
             }

@@ -24,6 +24,9 @@ struct RhythmApp: App {
                 .tint(model.preferences.accent == .system ? nil : model.preferences.accent.color)
                 .onOpenURL { model.router.handle($0) }
         }
+        .backgroundTask(.appRefresh(AppModel.backgroundRefreshIdentifier)) { [model] in
+            await model.handleBackgroundRefresh()
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active: model.sceneBecameActive()

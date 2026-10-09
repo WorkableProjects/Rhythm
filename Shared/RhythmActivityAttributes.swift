@@ -1,35 +1,34 @@
 import ActivityKit
 import Foundation
 
-/// Live Activity attributes for the current period. Shared by the app (which starts, updates,
-/// and ends the activity) and the widget extension (which renders it).
+/// Live Activity attributes for the school day. Shared by the app (which starts, schedules,
+/// updates, and ends the activity) and the widget extension (which renders it).
 ///
-/// The content state is intentionally small and display-only; it stays well under ActivityKit's
-/// 4 KB payload limit.
+/// The content holds the current segment and the one after it. When the current segment ends,
+/// the system marks the activity stale and re-renders it, and the view switches to the following
+/// segment, so a passing period ("4:12 until Period 2") or the next period displays correctly even
+/// if Rhythm isn't running. The payload stays far below ActivityKit's 4 KB limit.
 struct RhythmActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
-        enum Phase: String, Codable, Hashable {
-            /// A period is in progress; `startDate...endDate` is the period.
-            case inPeriod
-            /// Between periods; `startDate...endDate` runs until the next period starts.
-            case freeTime
-            /// Before the first period; `startDate...endDate` runs until it starts.
-            case upcoming
+        struct Segment: Codable, Hashable {
+            enum Kind: String, Codable, Hashable {
+                case period, passing, freeTime, beforeSchool
+            }
+
+            var kind: Kind
+            /// The active period's title, or the title of the period being waited for.
+            var title: String
+            var symbolName: String
+            var startDate: Date
+            var endDate: Date
         }
 
-        var phase: Phase
-        /// The active period's title, or the next period's title when not in a period.
-        var title: String
-        var kindName: String
-        var symbolName: String
-        var startDate: Date
-        var endDate: Date
-        var nextTitle: String?
-        var nextStartDate: Date?
+        var current: Segment
+        var following: Segment?
         /// Deep-link target (`rhythm://…`).
         var deepLink: URL
     }
 
-    /// Name of the schedule in use, e.g. "Regular Day".
+    /// Name of the schedule in use, e.g. "Regular (Mon/Wed/Fri)".
     var scheduleName: String
 }

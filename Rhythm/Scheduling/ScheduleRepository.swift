@@ -252,6 +252,22 @@ final class ScheduleRepository {
         for weekday in Weekday.schoolWeek { assign(weekday, to: template.id) }
     }
 
+    /// Adds the school's bell schedule: Regular (Mon/Wed/Fri), Advisory (Tue/Thu), and the
+    /// Collaboration/Minimum Day and Finals schedules for use on specific dates. Existing schedules
+    /// are kept; the weekdays are reassigned to the new templates.
+    @discardableResult
+    func insertBellSchedule(lunch: LunchGroup) -> [ScheduleTemplate] {
+        BellSchedulePreset.entries(lunch: lunch).map { entry in
+            let template = ScheduleTemplate(id: entry.template.id, name: entry.template.name)
+            context.insert(template)
+            for period in entry.template.periods {
+                template.periods.append(SchedulePeriod(period))
+            }
+            for weekday in entry.weekdays { assign(weekday, to: template.id) }
+            return template
+        }
+    }
+
     func removeSampleTimetable() {
         for template in templates() where template.isSample {
             deleteTemplate(template)

@@ -22,7 +22,7 @@ struct LiveStatusContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: RhythmSpacing.md) {
-            TagLabel(text: snapshot.state.displayName, tint: .accentColor)
+            TagLabel(text: snapshot.stateLabel, tint: .accentColor)
 
             HStack(alignment: .top, spacing: RhythmSpacing.md) {
                 if let focus {
@@ -113,7 +113,7 @@ struct LiveStatusContent: View {
     private var title: String {
         switch snapshot.state {
         case .inProgress, .upcoming: focus?.title ?? ""
-        case .freeTime: "Free Time"
+        case .freeTime: snapshot.stateLabel
         case .dayComplete: "That’s a wrap for today"
         case .noSchool: "No School"
         case .scheduleNeeded: "Schedule Needed"
@@ -126,7 +126,7 @@ struct LiveStatusContent: View {
             guard let focus else { return "" }
             return [focus.kind.displayName, focus.detail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         case .freeTime:
-            return snapshot.nextPeriod.map { "Next: \($0.title)" } ?? ""
+            return snapshot.nextPeriod.map { "Next: \($0.title) at \($0.startDate.shortTime)" } ?? ""
         case .dayComplete:
             if let last = snapshot.previousPeriod { return "\(last.title) ended at \(last.endDate.shortTime)." }
             return "All periods have ended."
@@ -140,7 +140,7 @@ struct LiveStatusContent: View {
         case .inProgress:
             snapshot.activePeriod.map { "remaining · ends at \($0.endDate.shortTime)" } ?? ""
         case .upcoming, .freeTime:
-            snapshot.nextPeriod.map { "until \($0.title) starts at \($0.startDate.shortTime)" } ?? ""
+            snapshot.nextPeriod.map { "until \($0.title)" } ?? ""
         default:
             ""
         }
@@ -165,7 +165,7 @@ struct LiveStatusContent: View {
             return text
         case .freeTime, .upcoming:
             guard let next = snapshot.nextPeriod else { return title }
-            let prefix = snapshot.state == .freeTime ? "Free time. " : "Up next. "
+            let prefix = snapshot.state == .freeTime ? "\(snapshot.stateLabel). " : "Up next. "
             return prefix + "\(next.title) starts in \(CountdownFormat.spoken(next.startDate.timeIntervalSince(snapshot.now))), at \(next.startDate.shortTime)."
         default:
             return "\(title). \(subtitle)"
