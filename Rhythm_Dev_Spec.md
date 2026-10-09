@@ -835,3 +835,41 @@ Use these current Apple references when implementing and verify any framework de
 ## 15. Final instruction to Claude Code
 
 Start by inspecting the repository and reporting whether a complete Xcode project already exists. Then implement the phases in order, compiling and testing at every gate. Prioritize correct schedule calculations and a beautiful, accessible Today screen before secondary integrations. The result should feel native, restrained, and dependable: a live view of a student’s day—not a collection of unrelated productivity features.
+
+---
+
+## 16. Implementation notes and deviations
+
+This section records how the MVP was implemented and where it intentionally differs from the text above. Keep it current.
+
+### 16.1 Architecture
+
+- **RhythmCore Swift package (deviation from §9's single-project layout).** All deterministic logic — `ScheduleEngine`, `ScheduleSnapshot`, `ScheduleValidator`, reminder planning and reconciliation, the widget snapshot format, export/import DTOs and validation, Quicklink URL validation, deep links, and countdown formatting — lives in a local package at `Packages/RhythmCore`. Reason: the widget extension needs the same types as the app, and the package depends only on Foundation, so its tests run with `swift test` on any machine (including Linux CI). The app and widget targets link it; the Xcode scheme runs its tests.
+- **Shared/** holds the few files compiled into both the app and widget extension that need Apple UI frameworks: `RhythmActivityAttributes`, `SharedStorage` (App Group location), and `RhythmPalette` (accent and category colours).
+- **AppModel** is the single composition root. Every edit goes through `AppModel.commit(_:)`, which saves, rebuilds the engine configuration, reconciles notifications, rewrites the widget snapshot (reloading timelines only when content changed), and reconciles the Live Activity.
+- **Preferences** (`RhythmPreferences`) are stored in `UserDefaults`, not SwiftData: they are device-level, relationship-free, and excluded from export. The "default schedule" and "week-start" settings from §4.4 were not added: weekday assignment covers the first, and the system calendar's `firstWeekday` is used for the second, so neither would be a functional control.
+- **Xcode project** uses folder-synchronized groups (Xcode 16+ format), so files added under `Rhythm/`, `Shared/`, `RhythmWidgets/`, `RhythmTests/`, and `RhythmUITests/` are picked up without editing the project file. Bundle IDs and the App Group derive from one build setting, `RHYTHM_BUNDLE_ID_PREFIX`.
+
+### 16.2 Platform targets
+
+- **Deployment target iOS 26.0**, built with any SDK ≥ iOS 26 (Xcode 26 or 27). No iOS 27-only API is used, so the project also builds with Xcode 26; when building with the iOS 27 SDK nothing changes. Liquid Glass is used through system chrome (tab bar, toolbars, sheets) plus three explicit control-layer uses: the floating Undo bar (`glassEffect`), the "Today" return button, and onboarding buttons (`.glass` / `.glassProminent`). Content surfaces use standard grouped backgrounds.
+- **Swift language mode 5 with `SWIFT_STRICT_CONCURRENCY = complete`** for the app targets; the RhythmCore package builds in Swift 6 mode with no warnings. UI state is `@MainActor`. Moving the app targets to Swift 6 mode is a follow-up once the project has been compiled and the remaining concurrency diagnostics reviewed in Xcode.
+
+### 16.3 Behaviour details
+
+- **Day states.** `DayState` adds `dayComplete` (all periods ended) alongside the states in §5. `noSchool` covers a no-school override, an unassigned weekday, and an empty template; `DaySource` tells them apart for copy and actions.
+- **Overlaps in stored data** are resolved by keeping the earlier period and skipping the later one, and the issue is shown on Today ("Some periods were skipped"). Two periods can never be active at once.
+- **Date overrides.** A special schedule either reuses another template (late start, minimum day) or has its own one-off periods, initially copied from that day's regular schedule.
+- **Reminders** are per-period: "N minutes before start, every time the period occurs" or "once at a date and time". Occurrences are generated only for periods that appear in the resolved day, so deletions, disabled periods, and no-school days suppress them automatically. A 14-day rolling horizon is capped at 60 pending requests (iOS allows 64). Request identifiers embed a content fingerprint, so reconciliation is idempotent and changed reminders replace old requests.
+- **Live Activity.** Shown while a period is in progress, during free time between periods, and from one hour before the first period. Without a push server, content can only be updated while Rhythm runs (on launch, foreground, edits, and at each boundary while foregrounded). Each update sets `staleDate` to the next boundary; after it the Lock Screen shows "Open Rhythm" plus what's next instead of a finished timer. Live Activities are off until the user enables them in Settings, where they are explained the first time.
+- **Widgets.** The app writes a ≤ 8 KB JSON snapshot covering three days; the widget builds timeline entries at each boundary and uses system-rendered `Text(timerInterval:)` countdowns. Missing, corrupt, newer-version, or out-of-range snapshots show "Open Rhythm to update".
+- **Import** replaces all data after a preview and confirmation. If writing fails, the previous data (captured as an export first) is restored.
+- **Testing hooks.** `-RhythmUITesting` (in-memory store, isolated preferences), `-RhythmClock yyyy-MM-ddTHH:mm:ss` (shifts "now" for deterministic UI tests), and `-RhythmNotificationsDenied` (simulates denied permission). They have no effect in normal launches.
+
+### 16.4 Verification status
+
+| Item | Status |
+| --- | --- |
+| RhythmCore: 75 unit tests (engine boundaries, overrides, DST/time zones, validator, reminders + reconciliation, widget snapshot, import/export, Quicklinks, deep links) | Passing (`swift test`, Swift 6.1) |
+| App, widget extension, app unit tests, UI tests | Written; compiled and run only via Xcode/CI (`scripts/ci-ios.sh`). Not yet verified on a Mac in this development session. |
+| Physical iPhone: Live Activity, Dynamic Island, widgets, Siri/Shortcuts discovery, Reduce Motion / Increase Contrast / large text pass | Not yet done — requires a device (Phase 8 gate). |

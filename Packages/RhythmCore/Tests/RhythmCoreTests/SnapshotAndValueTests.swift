@@ -101,3 +101,22 @@ final class ValueTypeTests: XCTestCase {
         XCTAssertEqual(ClockTime(hour: 8, minute: 5).description, "08:05")
     }
 }
+
+final class CountdownFormatTests: XCTestCase {
+    func testClock() {
+        XCTAssertEqual(CountdownFormat.clock(245), "4:05")
+        XCTAssertEqual(CountdownFormat.clock(3723), "1:02:03")
+        XCTAssertEqual(CountdownFormat.clock(0.2), "0:01")
+        XCTAssertEqual(CountdownFormat.clock(-5), "0:00")
+    }
+
+    func testShortAndSpoken() {
+        XCTAssertEqual(CountdownFormat.short(12 * 60), "12 min")
+        XCTAssertEqual(CountdownFormat.short(65 * 60), "1 hr 5 min")
+        XCTAssertEqual(CountdownFormat.short(120 * 60), "2 hr")
+        XCTAssertEqual(CountdownFormat.spoken(11 * 60 + 30), "12 minutes")
+        XCTAssertEqual(CountdownFormat.spoken(60), "1 minute")
+        XCTAssertEqual(CountdownFormat.spoken(65 * 60), "1 hour, 5 minutes")
+        XCTAssertEqual(CountdownFormat.spoken(0), "less than a minute")
+    }
+}

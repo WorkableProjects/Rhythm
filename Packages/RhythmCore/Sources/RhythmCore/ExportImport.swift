@@ -66,8 +66,9 @@ public enum ImportError: Error, Hashable, Sendable {
 }
 
 /// A validated import, ready to show the user before committing.
-public struct ImportPreview: Hashable, Sendable {
+public struct ImportPreview: Hashable, Sendable, Identifiable {
     public var export: RhythmExport
+    public var id: Date { export.exportedAt }
     public var templateCount: Int { export.templates.count }
     public var periodCount: Int { export.templates.reduce(0) { $0 + $1.periods.count } }
     public var overrideCount: Int { export.overrides.count }

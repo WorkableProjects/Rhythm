@@ -1,7 +1,7 @@
 import Foundation
 
 /// A problem found in schedule data. Each issue has user-facing copy.
-public enum ScheduleIssue: Hashable, Sendable {
+public enum ScheduleIssue: Hashable, Sendable, Identifiable {
     case emptyTitle(periodID: UUID)
     case endNotAfterStart(periodID: UUID, title: String)
     case outsideDay(periodID: UUID, title: String)
@@ -9,6 +9,8 @@ public enum ScheduleIssue: Hashable, Sendable {
     case overlap(firstID: UUID, firstTitle: String, secondID: UUID, secondTitle: String, minutes: Int)
     case duplicateWeekdayAssignment(Weekday)
     case unknownTemplate(UUID)
+
+    public var id: String { message + periodIDs.map(\.uuidString).joined() }
 
     /// The periods this issue concerns, for highlighting in editors.
     public var periodIDs: [UUID] {
