@@ -159,7 +159,7 @@ struct SettingsView: View {
         Section {
             Toggle("Show Current Period", isOn: enabled)
                 .accessibilityIdentifier("liveActivityToggle")
-            if enabled.wrappedValue && !model.liveActivities.systemAllowsActivities {
+            if !model.liveActivities.systemAllowsActivities {
                 VStack(alignment: .leading, spacing: RhythmSpacing.xs) {
                     Text("Live Activities are turned off for Rhythm in iOS Settings.")
                         .font(.footnote)
@@ -167,14 +167,34 @@ struct SettingsView: View {
                         .font(.footnote.weight(.semibold))
                 }
             }
+            if enabled.wrappedValue {
+                Button("Start Now") {
+                    Task { await model.startLiveActivityNow() }
+                }
+                .accessibilityIdentifier("startLiveActivityButton")
+                NavigationLink("Start Automatically Every Day") { LiveActivityAutomationView() }
+                LabeledContent("Status", value: liveActivityStatus)
+                if let start = model.liveActivities.scheduledStart {
+                    LabeledContent("Next Automatic Start", value: start.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
+                }
+            }
             if let error = model.liveActivities.lastError, enabled.wrappedValue {
                 Text(error).font(.footnote).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("liveActivityError")
             }
         } header: {
             Text("Live Activity")
         } footer: {
-            Text("Shows the current period and a countdown on the Lock Screen and Dynamic Island. Availability is controlled by iOS.")
+            Text("Shows the current period, passing periods, and a countdown on the Lock Screen and in the Dynamic Island. It starts when you open Rhythm during school hours, and iOS starts a scheduled one before the first bell.")
         }
+    }
+
+    private var liveActivityStatus: String {
+        let live = model.liveActivities
+        if !live.systemAllowsActivities { return "Off in iOS Settings" }
+        if live.runningCount > 0 { return "Showing" }
+        if live.pendingCount > 0 { return "Scheduled" }
+        return "Not showing"
     }
 
     private func notificationsSection(remindersEnabled: Binding<Bool>) -> some View {
@@ -360,6 +380,31 @@ struct ImportPreviewView: View {
                 }
             }
         }
+    }
+}
+
+/// How to have iOS start the Live Activity every school day with no taps, using a Shortcuts
+/// automation that runs Rhythm's "Start Rhythm Live Activity" action.
+private struct LiveActivityAutomationView: View {
+    var body: some View {
+        List {
+            Section {
+                Text("Rhythm schedules a Live Activity before each school day, and starts one whenever you open the app during school hours. For a start that never depends on opening Rhythm, add a Shortcuts automation once:")
+            }
+            Section("One-time setup") {
+                Label("Open the Shortcuts app and tap Automation, then +.", systemImage: "1.circle")
+                Label("Choose Time of Day, pick a time a few minutes before first bell (for example 8:20 AM), and select Weekly on school days.", systemImage: "2.circle")
+                Label("Choose Run Immediately, then tap Next.", systemImage: "3.circle")
+                Label("Search for Rhythm and choose Start Rhythm Live Activity. Tap Done.", systemImage: "4.circle")
+            }
+            Section {
+                Text("You can add more times (for example right after lunch) to refresh it during the day. Rhythm runs the action in the background; it doesn't open the app.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Start Automatically")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

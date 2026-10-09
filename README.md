@@ -10,7 +10,7 @@ The product and engineering specification is [`Rhythm_Dev_Spec.md`](Rhythm_Dev_S
 
 ```text
 Rhythm.xcodeproj            Xcode project (app, widget extension, unit + UI test targets)
-Packages/RhythmCore/        Swift package: schedule engine and all pure logic (+ 91 tests)
+Packages/RhythmCore/        Swift package: schedule engine and all pure logic (+ 93 tests)
 Rhythm/                     App target
   App/                      Entry point, AppModel (composition root), router, root view
   Models/                   SwiftData models, schema version + migration plan, mapping

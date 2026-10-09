@@ -67,8 +67,9 @@ The Simulator separates code problems from phone or signing problems.
 2. Press **⌘R**. Xcode builds, signs, installs and opens Rhythm.
 3. If the phone says **Untrusted Developer**: **Settings → General → VPN & Device Management** → your Apple Account → **Trust**, then ⌘R again.
 4. Set up your schedule. Rhythm asks for notification permission only when you add your first reminder.
-5. Live Activity: turn it on in Rhythm's **Settings**, and allow Live Activities for Rhythm in the iPhone's Settings app.
-6. Widgets: long-press the Home Screen → **Edit → Add Widget** → search for Rhythm.
+5. Live Activity: it's on by default. Check that Live Activities are allowed for Rhythm in the iPhone's Settings app. In Rhythm's **Settings → Live Activity**, **Start Now** shows it immediately and **Status** shows what iOS reports.
+6. So it starts every school day without opening Rhythm, add the automation in **Settings → Live Activity → Start Automatically Every Day** (Shortcuts → Automation → Time of Day → Run Immediately → *Start Rhythm Live Activity*).
+7. Widgets: long-press the Home Screen → **Edit → Add Widget** → search for Rhythm.
 
 ## Keeping it installed
 
@@ -90,4 +91,4 @@ The Simulator separates code problems from phone or signing problems.
 | "Untrusted Developer" on launch | Settings → General → VPN & Device Management → Trust |
 | App stopped opening after a week | Free-account signature expired; reconnect and press ⌘R |
 | Red build errors | Product → Clean Build Folder (⇧⌘K) and build again; report the first error from the Issue navigator |
-| Live Activity doesn't appear | Enable it in Rhythm's Settings and in iOS Settings; it shows only during or shortly before school hours |
+| Live Activity doesn't appear | Check Rhythm's Settings → Live Activity → Status and the message under it (it shows iOS's reason). Automatic display runs from an hour before first bell to last bell; use Start Now any time, and add the Shortcuts automation for a daily start without opening the app |

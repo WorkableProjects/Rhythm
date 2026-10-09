@@ -252,20 +252,33 @@ final class ScheduleRepository {
         for weekday in Weekday.schoolWeek { assign(weekday, to: template.id) }
     }
 
-    /// Adds the school's bell schedule: Regular (Mon/Wed/Fri), Advisory (Tue/Thu), and the
-    /// Collaboration/Minimum Day and Finals schedules for use on specific dates. Existing schedules
-    /// are kept; the weekdays are reassigned to the new templates.
+    /// Copies one bell schedule template into the user's schedules. If a schedule with the same
+    /// name already exists it's reused, so copying twice never creates duplicates. With
+    /// `assignWeekdays`, the template's usual weekdays (e.g. Mon/Wed/Fri) are moved to it.
     @discardableResult
-    func insertBellSchedule(lunch: LunchGroup) -> [ScheduleTemplate] {
-        BellSchedulePreset.entries(lunch: lunch).map { entry in
-            let template = ScheduleTemplate(id: entry.template.id, name: entry.template.name)
+    func copyBellSchedule(_ kind: BellSchedulePreset.Kind, lunch: LunchGroup, assignWeekdays: Bool) -> ScheduleTemplate {
+        let definition = kind.template(lunch: lunch)
+        let template: ScheduleTemplate
+        if let existing = templates().first(where: { $0.name == definition.name }) {
+            template = existing
+        } else {
+            template = ScheduleTemplate(id: definition.id, name: definition.name)
             context.insert(template)
-            for period in entry.template.periods {
+            for period in definition.periods {
                 template.periods.append(SchedulePeriod(period))
             }
-            for weekday in entry.weekdays { assign(weekday, to: template.id) }
-            return template
         }
+        if assignWeekdays {
+            for weekday in kind.defaultWeekdays { assign(weekday, to: template.id) }
+        }
+        return template
+    }
+
+    /// Copies all four bell schedule templates and assigns Mon/Wed/Fri and Tue/Thu. Existing
+    /// schedules are kept.
+    @discardableResult
+    func insertBellSchedule(lunch: LunchGroup) -> [ScheduleTemplate] {
+        BellSchedulePreset.Kind.allCases.map { copyBellSchedule($0, lunch: lunch, assignWeekdays: true) }
     }
 
     func removeSampleTimetable() {

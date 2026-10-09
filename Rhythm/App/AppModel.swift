@@ -189,6 +189,22 @@ final class AppModel {
         }
     }
 
+    /// Starts or updates the Live Activity immediately, turning the setting on if needed. Called by
+    /// Settings' "Start Now" and by `StartLiveActivityIntent`, which iOS lets run in the background.
+    func startLiveActivityNow() async {
+        if !preferences.liveActivitiesEnabled { preferences.liveActivitiesEnabled = true }
+        calendar = .autoupdatingCurrent
+        reload()
+        let engine = engine
+        let configuration = configuration
+        let now = now()
+        await liveActivityTask?.value
+        await liveActivities.startNow(engine: engine, configuration: configuration, now: now)
+        await reconcileLiveActivity(engine: engine, now: now).value
+        widgetStore.update(configuration: configuration, engine: engine, accentKey: preferences.accent.rawValue, now: now)
+        scheduleBackgroundRefresh()
+    }
+
     // MARK: Background refresh
 
     /// Must match `BGTaskSchedulerPermittedIdentifiers` in the Info.plist.
@@ -249,9 +265,20 @@ final class AppModel {
 
     /// Loads the school's bell schedule (see `BellSchedulePreset`) and finishes onboarding.
     func applyBellSchedule(lunch: LunchGroup) {
+        preferences.lunchGroup = lunch
         if commit({ repository.insertBellSchedule(lunch: lunch) }) {
             preferences.hasCompletedOnboarding = true
         }
+    }
+
+    /// Copies one bell schedule template; returns the copy (or the existing one with that name).
+    @discardableResult
+    func copyBellSchedule(_ kind: BellSchedulePreset.Kind, lunch: LunchGroup, assignWeekdays: Bool) -> ScheduleTemplate? {
+        if kind.dependsOnLunch { preferences.lunchGroup = lunch }
+        var copied: ScheduleTemplate?
+        guard commit({ copied = repository.copyBellSchedule(kind, lunch: lunch, assignWeekdays: assignWeekdays) }) else { return nil }
+        preferences.hasCompletedOnboarding = true
+        return copied
     }
 
     func removeSample() {

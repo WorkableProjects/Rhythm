@@ -1,6 +1,7 @@
 import ActivityKit
 import Foundation
 import Observation
+import OSLog
 import RhythmCore
 
 /// Runs Rhythm's Live Activity automatically, with no input from the user.
@@ -19,8 +20,16 @@ import RhythmCore
 @MainActor
 @Observable
 final class LiveActivityCoordinator {
-    /// A short, user-facing description of the last failure, if any.
+    /// A short, user-facing description of the last failure, if any (includes iOS's own reason).
     private(set) var lastError: String?
+    /// Running (active or stale) and scheduled (pending) Rhythm activities, for Settings.
+    private(set) var runningCount = 0
+    private(set) var pendingCount = 0
+    /// When the scheduled activity for the next school day will start, if one is scheduled.
+    private(set) var scheduledStart: Date?
+    private(set) var lastReconciled: Date?
+
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Rhythm", category: "LiveActivity")
 
     /// Whether iOS currently allows Rhythm's Live Activities.
     var systemAllowsActivities: Bool {
@@ -37,7 +46,9 @@ final class LiveActivityCoordinator {
 
     func reconcile(engine: ScheduleEngine, configuration: ScheduleConfiguration, now: Date, enabled: Bool) async {
         let activities = Activity<RhythmActivityAttributes>.activities
+        defer { refreshStatus(now: now) }
         guard enabled, systemAllowsActivities else {
+            logger.info("Live Activities off (setting: \(enabled), iOS: \(self.systemAllowsActivities)); ending \(activities.count)")
             for activity in activities { await activity.end(nil, dismissalPolicy: .immediate) }
             scheduledDays = [:]
             return
@@ -53,12 +64,46 @@ final class LiveActivityCoordinator {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
             await show(frame, source: today.source, running: running)
+        } else if let hold = manualHoldUntil, now < hold {
+            // Started on request outside school hours; keep it until its countdown ends.
         } else {
             for activity in running { await activity.end(nil, dismissalPolicy: .immediate) }
         }
 
         await scheduleNextDay(engine: engine, configuration: configuration, now: now,
                               pending: Activity<RhythmActivityAttributes>.activities.filter { $0.activityState == .pending })
+    }
+
+    /// Starts (or updates) the activity right now, even outside the automatic window: during school
+    /// hours it shows the live segment, otherwise a countdown to the next school day's first bell.
+    /// Used by Settings' "Start Now" and the `StartLiveActivityIntent` (which may run in the background).
+    func startNow(engine: ScheduleEngine, configuration: ScheduleConfiguration, now: Date) async {
+        defer { refreshStatus(now: now) }
+        guard systemAllowsActivities else {
+            lastError = "Live Activities are turned off for Rhythm in iOS Settings."
+            return
+        }
+        let today = engine.resolveDay(LocalDate(now, calendar: engine.calendar), configuration: configuration)
+        let running = Activity<RhythmActivityAttributes>.activities.filter { $0.activityState == .active || $0.activityState == .stale }
+        if let frame = ScheduleSegments.liveFrame(at: now, day: today) {
+            await show(frame, source: today.source, running: running)
+        } else if let next = ScheduleSegments.nextAutomaticStart(after: now, engine: engine, configuration: configuration),
+                  let firstPeriod = next.following?.period {
+            let waiting = ScheduleSegment(kind: .beforeSchool, period: firstPeriod, startDate: now, endDate: firstPeriod.startDate)
+            let day = engine.resolveDay(next.date, configuration: configuration)
+            manualHoldUntil = firstPeriod.startDate
+            await show(LiveFrame(date: next.date, current: waiting, following: next.following), source: day.source, running: running)
+        } else {
+            lastError = "There are no periods coming up in the next two weeks."
+        }
+    }
+
+    private func refreshStatus(now: Date) {
+        let activities = Activity<RhythmActivityAttributes>.activities
+        runningCount = activities.filter { $0.activityState == .active || $0.activityState == .stale }.count
+        pendingCount = activities.filter { $0.activityState == .pending }.count
+        if pendingCount == 0 { scheduledStart = nil }
+        lastReconciled = now
     }
 
     func endAll() async {
@@ -82,11 +127,14 @@ final class LiveActivityCoordinator {
         }
         do {
             let attributes = RhythmActivityAttributes(scheduleName: Self.scheduleName(for: source))
-            _ = try Activity.request(attributes: attributes, content: content, pushType: nil)
+            let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
+            logger.info("Started Live Activity \(activity.id, privacy: .public) for \(state.current.title, privacy: .public)")
             lastError = nil
         } catch {
-            // Starting requires the foreground; a background refresh lands here harmlessly.
-            lastError = "iOS didn’t start the Live Activity. Check that Live Activities are allowed for Rhythm in Settings."
+            // A background refresh can't start an activity (only a LiveActivityIntent can), so this
+            // is expected there; in the foreground the reason is shown in Settings.
+            logger.error("Live Activity request failed: \(String(describing: error), privacy: .public)")
+            lastError = "iOS didn’t start the Live Activity: \(error.localizedDescription)"
         }
     }
 
@@ -112,6 +160,7 @@ final class LiveActivityCoordinator {
         }
         if let keep {
             scheduledDays = [keep.id: key]
+            scheduledStart = next.current.startDate
             return
         }
 
@@ -131,11 +180,21 @@ final class LiveActivityCoordinator {
                 start: next.current.startDate
             )
             scheduledDays = [activity.id: key]
+            scheduledStart = next.current.startDate
+            logger.info("Scheduled Live Activity for \(key, privacy: .public) at \(next.current.startDate.description, privacy: .public)")
         } catch {
             // Scheduling isn't available (limits, settings, or background state). The activity
-            // still starts the next time Rhythm opens during school hours.
+            // still starts the next time Rhythm opens during school hours, or from the intent.
+            logger.error("Scheduling Live Activity failed: \(String(describing: error), privacy: .public)")
             scheduledDays = [:]
+            scheduledStart = nil
         }
+    }
+
+    /// Set when the user (or the intent) starts the activity outside school hours.
+    private var manualHoldUntil: Date? {
+        get { defaults.object(forKey: "liveActivityManualHoldUntil") as? Date }
+        set { defaults.set(newValue, forKey: "liveActivityManualHoldUntil") }
     }
 
     private var scheduledDays: [String: String] {

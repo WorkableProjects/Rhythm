@@ -20,6 +20,20 @@ final class BellSchedulePresetTests: XCTestCase {
         }
     }
 
+    func testTemplateNamesIdentifyLunch() {
+        XCTAssertEqual(BellSchedulePreset.regular(lunch: .a).name, "Mon/Wed/Fri (A Lunch)")
+        XCTAssertEqual(BellSchedulePreset.advisory(lunch: .b).name, "Tue/Thu Advisory (B Lunch)")
+        XCTAssertEqual(BellSchedulePreset.collaboration().name, "Collaboration Day")
+        XCTAssertEqual(BellSchedulePreset.finals().name, "Finals")
+        XCTAssertEqual(BellSchedulePreset.Kind.allCases.count, 4)
+        XCTAssertFalse(BellSchedulePreset.Kind.collaboration.dependsOnLunch)
+    }
+
+    func testFinalsTimes() {
+        let rows = BellSchedulePreset.finals().periods.map { "\($0.title) \($0.start)-\($0.end)" }
+        XCTAssertEqual(rows, ["Periods 1/2/3 08:30-10:30", "Periods 4/5/6 10:40-12:40", "Lunch 12:40-13:00"])
+    }
+
     func testWeekdayAssignments() {
         let entries = BellSchedulePreset.entries(lunch: .a)
         XCTAssertEqual(entries[0].weekdays, [.monday, .wednesday, .friday])

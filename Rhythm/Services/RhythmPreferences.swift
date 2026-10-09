@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import RhythmCore
 import SwiftUI
 
 /// Appearance options. `system` (the default) follows the device setting.
@@ -37,6 +38,7 @@ final class RhythmPreferences {
         static let reminders = "remindersEnabled"
         static let onboarding = "hasCompletedOnboarding"
         static let liveActivityExplained = "hasSeenLiveActivityExplanation"
+        static let lunch = "lunchGroup"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -67,6 +69,11 @@ final class RhythmPreferences {
         didSet { defaults.set(hasSeenLiveActivityExplanation, forKey: Key.liveActivityExplained) }
     }
 
+    /// The student's lunch, used when copying bell schedules whose times depend on it.
+    var lunchGroup: LunchGroup {
+        didSet { defaults.set(lunchGroup.rawValue, forKey: Key.lunch) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         appearance = AppearancePreference(rawValue: defaults.string(forKey: Key.appearance) ?? "") ?? .system
@@ -77,6 +84,7 @@ final class RhythmPreferences {
         remindersEnabled = defaults.object(forKey: Key.reminders) as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: Key.onboarding)
         hasSeenLiveActivityExplanation = defaults.bool(forKey: Key.liveActivityExplained)
+        lunchGroup = LunchGroup(rawValue: defaults.string(forKey: Key.lunch) ?? "") ?? .a
     }
 
     /// Restores defaults (used by "Delete All Data").

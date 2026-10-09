@@ -23,6 +23,7 @@ struct ScheduleView: View {
                     weekSection
                 }
                 overridesSection
+                BellScheduleSection()
             }
             .navigationTitle("Schedule")
             .toolbar {
@@ -51,6 +52,9 @@ struct ScheduleView: View {
                     }
                     .accessibilityIdentifier("scheduleAddMenu")
                 }
+            }
+            .navigationDestination(for: BellSchedulePreset.Kind.self) { kind in
+                BellScheduleDetailView(kind: kind)
             }
             .navigationDestination(for: ScheduleTemplate.self) { template in
                 TemplateEditorView(template: template)
@@ -122,7 +126,7 @@ struct ScheduleView: View {
                 .accessibilityIdentifier("templateRow-\(template.name)")
             }
         } header: {
-            Text("Schedules")
+            Text("My Schedules")
         } footer: {
             Text("A schedule is one full day of periods. Several weekdays can share it.")
         }

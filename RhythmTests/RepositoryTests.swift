@@ -68,9 +68,9 @@ final class RepositoryTests: XCTestCase {
         let configuration = repository.configuration()
         XCTAssertEqual(configuration.templates.count, 4)
         let name = { (weekday: Weekday) in configuration.weekdayAssignments[weekday].flatMap { configuration.templates[$0]?.name } }
-        XCTAssertEqual(name(.monday), BellSchedulePreset.regularName)
-        XCTAssertEqual(name(.tuesday), BellSchedulePreset.advisoryName)
-        XCTAssertEqual(name(.friday), BellSchedulePreset.regularName)
+        XCTAssertEqual(name(.monday), BellSchedulePreset.Kind.regular.templateName(lunch: .b))
+        XCTAssertEqual(name(.tuesday), BellSchedulePreset.Kind.advisory.templateName(lunch: .b))
+        XCTAssertEqual(name(.friday), BellSchedulePreset.Kind.regular.templateName(lunch: .b))
         XCTAssertNil(name(.saturday))
     }
 

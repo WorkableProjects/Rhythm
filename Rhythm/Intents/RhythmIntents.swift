@@ -85,6 +85,24 @@ struct GetNextPeriodIntent: AppIntent {
     }
 }
 
+/// Starts or updates Rhythm's Live Activity. As a `LiveActivityIntent`, iOS lets it start the
+/// activity even while Rhythm is in the background, so a Shortcuts automation (for example, every
+/// school day at 8:00 AM, "Run Immediately") brings it up with no taps.
+struct StartLiveActivityIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Start Rhythm Live Activity"
+    static let description = IntentDescription(
+        "Shows your current or next period on the Lock Screen and in the Dynamic Island. Add it to a Shortcuts time-of-day automation so it starts on its own each school day."
+    )
+
+    @Dependency private var model: AppModel
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        await model.startLiveActivityNow()
+        return .result()
+    }
+}
+
 /// Recomputes schedule state and refreshes widgets, reminders, and the Live Activity locally.
 struct RefreshScheduleIntent: AppIntent {
     static let title: LocalizedStringResource = "Refresh Rhythm Schedule"
@@ -195,6 +213,12 @@ struct RhythmAppShortcuts: AppShortcutsProvider {
             phrases: ["Open a Quicklink in \(.applicationName)"],
             shortTitle: "Open Quicklink",
             systemImageName: "square.grid.2x2"
+        )
+        AppShortcut(
+            intent: StartLiveActivityIntent(),
+            phrases: ["Start \(.applicationName) Live Activity", "Show my day in \(.applicationName)"],
+            shortTitle: "Start Live Activity",
+            systemImageName: "timer"
         )
         AppShortcut(
             intent: RefreshScheduleIntent(),

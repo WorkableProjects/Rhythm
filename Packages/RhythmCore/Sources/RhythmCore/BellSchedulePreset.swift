@@ -15,24 +15,72 @@ public enum LunchGroup: String, CaseIterable, Codable, Sendable, Identifiable {
 /// - Collaboration / Minimum Day and Finals: not tied to a weekday; applied to specific dates with
 ///   "Change This Date".
 public enum BellSchedulePreset {
-    public static let regularName = "Regular (Mon/Wed/Fri)"
-    public static let advisoryName = "Advisory (Tue/Thu)"
-    public static let collaborationName = "Collaboration / Minimum Day"
-    public static let finalsName = "Finals"
+    /// The four copyable bell schedule templates.
+    public enum Kind: String, CaseIterable, Codable, Sendable, Identifiable {
+        case regular, advisory, collaboration, finals
+
+        public var id: String { rawValue }
+
+        public var displayName: String {
+            switch self {
+            case .regular: "Monday, Wednesday & Friday"
+            case .advisory: "Tuesday & Thursday (Advisory)"
+            case .collaboration: "Collaboration Day"
+            case .finals: "Finals"
+            }
+        }
+
+        public var summary: String {
+            switch self {
+            case .regular: "Regular schedule, 8:30 AM – 3:30 PM"
+            case .advisory: "Advisory schedule, 8:30 AM – 3:30 PM"
+            case .collaboration: "Collaboration and minimum days, 8:30 AM – 12:55 PM"
+            case .finals: "Finals days, 8:30 AM – 1:00 PM"
+            }
+        }
+
+        /// Whether the times differ between A and B lunch.
+        public var dependsOnLunch: Bool { self == .regular || self == .advisory }
+
+        /// Weekdays the schedule normally repeats on; empty for date-only schedules.
+        public var defaultWeekdays: [Weekday] {
+            switch self {
+            case .regular: [.monday, .wednesday, .friday]
+            case .advisory: [.tuesday, .thursday]
+            case .collaboration, .finals: []
+            }
+        }
+
+        /// The template's name when copied, e.g. "Mon/Wed/Fri (A Lunch)".
+        public func templateName(lunch: LunchGroup) -> String {
+            switch self {
+            case .regular: "Mon/Wed/Fri (\(lunch.displayName))"
+            case .advisory: "Tue/Thu Advisory (\(lunch.displayName))"
+            case .collaboration: "Collaboration Day"
+            case .finals: "Finals"
+            }
+        }
+
+        public func template(lunch: LunchGroup) -> TemplateDefinition {
+            switch self {
+            case .regular: BellSchedulePreset.regular(lunch: lunch)
+            case .advisory: BellSchedulePreset.advisory(lunch: lunch)
+            case .collaboration: BellSchedulePreset.collaboration()
+            case .finals: BellSchedulePreset.finals()
+            }
+        }
+    }
 
     /// A template and the weekdays it should be assigned to (empty for date-only schedules).
     public struct Entry: Hashable, Sendable {
+        public var kind: Kind
         public var template: TemplateDefinition
         public var weekdays: [Weekday]
     }
 
+    /// All four templates, with the weekdays the recurring ones repeat on.
     public static func entries(lunch: LunchGroup) -> [Entry] {
-        [
-            Entry(template: regular(lunch: lunch), weekdays: [.monday, .wednesday, .friday]),
-            Entry(template: advisory(lunch: lunch), weekdays: [.tuesday, .thursday]),
-            Entry(template: collaboration(), weekdays: []),
-            Entry(template: finals(), weekdays: [])
-        ]
+        Kind.allCases.map { Entry(kind: $0, template: $0.template(lunch: lunch), weekdays: $0.defaultWeekdays) }
     }
 
     /// Monday, Wednesday & Friday.
@@ -57,7 +105,7 @@ public enum BellSchedulePreset {
             ("Period 6", .classPeriod, "14:32", "15:30")
         ]
         }
-        return template(regularName, rows)
+        return template(Kind.regular.templateName(lunch: lunch), rows)
     }
 
     /// Advisory Tuesday & Thursday.
@@ -82,13 +130,13 @@ public enum BellSchedulePreset {
             ("Period 6", .classPeriod, "14:37", "15:30")
         ]
         }
-        return template(advisoryName, rows)
+        return template(Kind.advisory.templateName(lunch: lunch), rows)
     }
 
     /// Collaboration days and minimum days. Senior Seminar is included but switched off; seniors
     /// can turn it on in the period editor.
     public static func collaboration() -> TemplateDefinition {
-        var definition = template(collaborationName, [
+        var definition = template(Kind.collaboration.templateName(lunch: .a), [
             ("Period 1", .classPeriod, "8:30", "9:05"),
             ("Period 2", .classPeriod, "9:11", "9:46"),
             ("Period 3", .classPeriod, "9:52", "10:27"),
@@ -106,7 +154,7 @@ public enum BellSchedulePreset {
 
     /// Finals days.
     public static func finals() -> TemplateDefinition {
-        template(finalsName, [
+        template(Kind.finals.templateName(lunch: .a), [
             ("Periods 1/2/3", .classPeriod, "8:30", "10:30"),
             ("Periods 4/5/6", .classPeriod, "10:40", "12:40"),
             ("Lunch", .lunch, "12:40", "13:00")
