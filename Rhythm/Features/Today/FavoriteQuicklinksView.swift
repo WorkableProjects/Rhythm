@@ -5,10 +5,11 @@ import SwiftUI
 /// A small row of favourite Quicklinks on Today. Hidden when there are no favourites.
 struct FavoriteQuicklinksView: View {
     @Environment(\.openURL) private var openURL
-    @Query(filter: #Predicate<Quicklink> { $0.isFavorite }, sort: \Quicklink.sortOrder)
-    private var favorites: [Quicklink]
+    @Query(sort: \Quicklink.sortOrder) private var allLinks: [Quicklink]
     @State private var failure: QuicklinkOpenFailure?
     @State private var editing: Quicklink?
+
+    private var favorites: [Quicklink] { allLinks.filter(\.isFavorite) }
 
     var body: some View {
         if !favorites.isEmpty {

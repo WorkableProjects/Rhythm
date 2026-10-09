@@ -6,15 +6,16 @@ import SwiftUI
 /// empty card takes up space.
 struct TodayRemindersView: View {
     @Environment(AppModel.self) private var model
-    @Query private var rules: [ReminderRule]
+    @Query private var allRules: [ReminderRule]
     let day: ResolvedDay
     let now: Date
 
     init(day: ResolvedDay, now: Date) {
         self.day = day
         self.now = now
-        _rules = Query(filter: #Predicate<ReminderRule> { $0.isEnabled })
     }
+
+    private var rules: [ReminderRule] { allRules.filter(\.isEnabled) }
 
     private struct Item: Identifiable {
         var id: UUID

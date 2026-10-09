@@ -228,7 +228,7 @@ struct ReminderRowView: View {
                     }
 
                     if let dueDate = rule.dueDate {
-                        let timeStr = rule.dueTime.map { " at \($0.shortTime)" } ?? ""
+                        let timeStr = rule.dueTime.map { " at \($0.formatted(calendar: model.calendar))" } ?? ""
                         Label("\(dueDate.key)\(timeStr)", systemImage: "calendar")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -389,7 +389,7 @@ struct NewReminderSheet: View {
         guard !trimmedTitle.isEmpty else { return }
 
         let localDate: LocalDate? = hasDueDate ? LocalDate(dueDate, calendar: model.calendar) : nil
-        let clockTime: ClockTime? = hasDueDate ? ClockTime(dueDate, calendar: model.calendar) : nil
+        let clockTime: ClockTime? = hasDueDate ? ClockTime(referenceDate: dueDate, calendar: model.calendar) : nil
 
         let period = selectedPeriodID.flatMap { model.repository.period(id: $0) }
         let trigger: ReminderTrigger
@@ -483,7 +483,7 @@ struct EditReminderSheet: View {
             rule.priority = priority
             if hasDueDate {
                 rule.dueDate = LocalDate(dueDate, calendar: model.calendar)
-                rule.dueTime = ClockTime(dueDate, calendar: model.calendar)
+                rule.dueTime = ClockTime(referenceDate: dueDate, calendar: model.calendar)
             } else {
                 rule.dueDate = nil
                 rule.dueTime = nil

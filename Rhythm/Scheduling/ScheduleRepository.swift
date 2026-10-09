@@ -32,9 +32,7 @@ final class ScheduleRepository {
 
     func override(on date: LocalDate) -> ScheduleOverride? {
         let key = date.key
-        var descriptor = FetchDescriptor<ScheduleOverride>(predicate: #Predicate { $0.dateKey == key })
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first
+        overrides().first { $0.dateKey == key }
     }
 
     func reminders() -> [ReminderRule] {
@@ -47,21 +45,15 @@ final class ScheduleRepository {
     }
 
     func period(id: UUID) -> SchedulePeriod? {
-        var descriptor = FetchDescriptor<SchedulePeriod>(predicate: #Predicate { $0.id == id })
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first
+        ((try? context.fetch(FetchDescriptor<SchedulePeriod>())) ?? []).first { $0.id == id }
     }
 
     func template(id: UUID) -> ScheduleTemplate? {
-        var descriptor = FetchDescriptor<ScheduleTemplate>(predicate: #Predicate { $0.id == id })
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first
+        ((try? context.fetch(FetchDescriptor<ScheduleTemplate>())) ?? []).first { $0.id == id }
     }
 
     func quicklink(id: UUID) -> Quicklink? {
-        var descriptor = FetchDescriptor<Quicklink>(predicate: #Predicate { $0.id == id })
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first
+        ((try? context.fetch(FetchDescriptor<Quicklink>())) ?? []).first { $0.id == id }
     }
 
     /// Engine input built from persisted data. Corrupt records are skipped.
