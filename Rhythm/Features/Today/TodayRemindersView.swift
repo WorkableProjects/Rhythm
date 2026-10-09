@@ -1,5 +1,5 @@
 import RhythmCore
-import SwiftData
+@preconcurrency import SwiftData
 import SwiftUI
 
 /// A compact list of today's remaining reminders. Renders nothing when there are none, so no
@@ -45,7 +45,7 @@ struct TodayRemindersView: View {
         let items = items
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: RhythmSpacing.sm) {
-                Text("Reminders")
+                Text("Period Reminders")
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
                 VStack(alignment: .leading, spacing: RhythmSpacing.md) {

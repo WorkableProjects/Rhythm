@@ -8,6 +8,12 @@ public enum DeepLink: Hashable, Sendable {
     case schedule(date: LocalDate?)
     case quicklinks
     case settings
+    /// The native Reminders tab.
+    case reminders
+    /// One native reminder, opened in its editor.
+    case reminder(id: UUID)
+    /// Starts a new native reminder.
+    case newReminder
 
     public static let scheme = "rhythm"
 
@@ -30,6 +36,13 @@ public enum DeepLink: Hashable, Sendable {
             components.host = "quicklinks"
         case .settings:
             components.host = "settings"
+        case .reminders:
+            components.host = "reminders"
+        case .reminder(let id):
+            components.host = "reminder"
+            components.path = "/" + id.uuidString
+        case .newReminder:
+            components.host = "newreminder"
         }
         if let dateItem {
             components.queryItems = [URLQueryItem(name: "date", value: dateItem.key)]
@@ -55,6 +68,14 @@ public enum DeepLink: Hashable, Sendable {
             self = .quicklinks
         case "settings":
             self = .settings
+        case "reminders":
+            self = .reminders
+        case "reminder":
+            let idString = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard let id = UUID(uuidString: idString) else { return nil }
+            self = .reminder(id: id)
+        case "newreminder":
+            self = .newReminder
         default:
             return nil
         }

@@ -21,6 +21,7 @@ final class AppModel {
     let notifications: NotificationScheduler
     let liveActivities = LiveActivityCoordinator()
     let widgetStore = WidgetSnapshotStore()
+    let reminders: RemindersModel
 
     /// Engine input built from persisted data.
     private(set) var configuration: ScheduleConfiguration = .empty
@@ -46,6 +47,15 @@ final class AppModel {
         recoveryMessage = loaded.recoveryMessage
 
         let isUITesting = arguments.contains(PersistenceController.uiTestingArgument)
+        if isUITesting {
+            // Isolated from the real reminders file, and empty at every launch.
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("RhythmUITests-Reminders.json")
+            try? FileManager.default.removeItem(at: url)
+            reminders = RemindersModel(store: NativeReminderFileStore(url: url))
+        } else {
+            reminders = RemindersModel()
+        }
+
         if isUITesting, let defaults = UserDefaults(suiteName: "RhythmUITests") {
             defaults.removePersistentDomain(forName: "RhythmUITests")
             preferences = RhythmPreferences(defaults: defaults)
@@ -66,6 +76,9 @@ final class AppModel {
             clockOffset = 0
         }
 
+        reminders.requestAuthorization = { [notifications] in
+            await notifications.requestAuthorizationIfNeeded()
+        }
         reload()
     }
 
@@ -98,13 +111,18 @@ final class AppModel {
 
     /// Call once at launch.
     func start() {
+        ReminderNotifications.registerCategory()
         observeSystemClockChanges()
         refreshIntegrations()
+        reminders.reload()
+        reminders.sync()
         Task { await notifications.refreshAuthorization() }
     }
 
     func sceneBecameActive() {
         handleClockChange()
+        reminders.reload()
+        reminders.sync()
         Task { await notifications.refreshAuthorization() }
     }
 
@@ -290,6 +308,7 @@ final class AppModel {
         commit { repository.deleteAllData() }
         preferences.reset()
         widgetStore.removeSnapshot()
+        reminders.deleteAll()
         router.todayDate = nil
         router.scheduleDate = nil
         router.presentedPeriod = nil

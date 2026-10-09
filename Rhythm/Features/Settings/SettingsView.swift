@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var isConfirmingDeleteAll = false
     @State private var isExplainingLiveActivities = false
     @State private var isChoosingBellScheduleLunch = false
+    @State private var dueAlertsEnabled = ReminderNotifications.isEnabled
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,7 @@ struct SettingsView: View {
                 LabeledContent("Version", value: Self.versionString)
                 NavigationLink("Privacy") { PrivacyView() }
             }
+            creditsSection
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -49,6 +51,10 @@ struct SettingsView: View {
         content
             .onChange(of: model.preferences.accent) { model.preferencesDidChange() }
             .onChange(of: model.preferences.remindersEnabled) { model.preferencesDidChange() }
+            .onChange(of: dueAlertsEnabled) { _, isOn in
+                ReminderNotifications.isEnabled = isOn
+                model.reminders.sync(requestingAuthorization: isOn)
+            }
             .onChange(of: model.preferences.liveActivitiesEnabled) { _, isOn in
                 liveActivitiesToggled(isOn)
             }
@@ -201,7 +207,9 @@ struct SettingsView: View {
         Section {
             LabeledContent("Permission", value: permissionDescription)
                 .accessibilityIdentifier("notificationPermissionRow")
-            Toggle("Reminders", isOn: remindersEnabled)
+            Toggle("Period Reminders", isOn: remindersEnabled)
+            Toggle("Reminder Due Alerts", isOn: $dueAlertsEnabled)
+                .accessibilityIdentifier("dueAlertsToggle")
             if model.notifications.authorization == .denied {
                 Button("Turn On in iOS Settings") { model.notifications.openSystemSettings() }
             } else if model.notifications.authorization == .notDetermined && remindersEnabled.wrappedValue {
@@ -218,8 +226,20 @@ struct SettingsView: View {
         } header: {
             Text("Notifications")
         } footer: {
-            Text("Reminders are set on individual periods in Schedule. Rhythm asks for permission the first time you add one.")
+            Text("Period reminders are set on individual periods in Schedule. Due alerts notify you when a reminder in the Reminders tab is due. Rhythm asks for permission the first time you add one.")
         }
+    }
+
+    private var creditsSection: some View {
+        Section {
+            LabeledContent("Copyright", value: "Caden Erwin and Workable Projects")
+            LabeledContent("Code", value: "Built by Claude")
+        } header: {
+            Text("Credits")
+        } footer: {
+            Text("© 2026 Caden Erwin and Workable Projects. All rights reserved.")
+        }
+        .accessibilityIdentifier("creditsSection")
     }
 
     private var dataSection: some View {
@@ -299,7 +319,7 @@ struct SettingsView: View {
 
     static var versionString: String {
         let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0.1"
         let build = info?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
     }
@@ -414,7 +434,7 @@ private struct PrivacyView: View {
         List {
             Section {
                 Text("Rhythm keeps your schedule, reminders, and Quicklinks only on this iPhone. There’s no account, no server, no analytics, no ads, and no AI.")
-                Text("Widgets and the Live Activity receive only period titles, categories, and times so they can display your day.")
+                Text("Widgets and the Live Activity receive only period titles, categories, and times so they can display your day. Reminder widgets read your reminders from a file shared between Rhythm and its widgets on this iPhone.")
                 Text("Notifications are scheduled locally by iOS. Quicklinks are opened by iOS; Rhythm doesn’t see what happens in the app or website you open.")
             }
         }

@@ -3,7 +3,7 @@ import Observation
 import RhythmCore
 
 enum AppTab: Hashable {
-    case today, schedule, quicklinks
+    case today, reminders, schedule, quicklinks
 }
 
 /// A period presented as a detail sheet, e.g. from a widget, notification, or timeline tap.
@@ -28,6 +28,12 @@ final class AppRouter {
     var isCreatingTemplate = false
     /// Asks the Schedule tab to open this template's editor.
     var pendingTemplateID: UUID? = nil
+    /// Asks the Reminders tab to present the new-reminder sheet.
+    var isCreatingReminder = false
+    /// Asks the Reminders tab to open this reminder in its editor.
+    var pendingReminderID: UUID? = nil
+    /// Set when a reminder list is deleted so any screen showing it can close.
+    var reminderListDeleted: UUID? = nil
 
     func handle(_ url: URL) {
         guard let link = DeepLink(url: url) else { return }
@@ -51,6 +57,14 @@ final class AppRouter {
             selectedTab = .quicklinks
         case .settings:
             isShowingSettings = true
+        case .reminders:
+            selectedTab = .reminders
+        case .reminder(let id):
+            selectedTab = .reminders
+            pendingReminderID = id
+        case .newReminder:
+            selectedTab = .reminders
+            isCreatingReminder = true
         }
     }
 }

@@ -1,6 +1,6 @@
 import Foundation
 import RhythmCore
-import SwiftData
+@preconcurrency import SwiftData
 
 /// Loads and saves Rhythm's persisted data and converts it into engine inputs.
 ///

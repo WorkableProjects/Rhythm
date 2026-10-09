@@ -118,6 +118,62 @@ struct RefreshScheduleIntent: AppIntent {
     }
 }
 
+/// Opens Rhythm to the Reminders tab.
+struct ShowRemindersIntent: AppIntent {
+    static let title: LocalizedStringResource = "Show Reminders in Rhythm"
+    static let description = IntentDescription("Opens Rhythm to your reminders.")
+    static let openAppWhenRun = true
+
+    @Dependency private var model: AppModel
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        model.reminders.reload()
+        model.router.handle(.reminders)
+        return .result()
+    }
+}
+
+/// Adds a native reminder without opening Rhythm.
+struct AddReminderIntent: AppIntent {
+    static let title: LocalizedStringResource = "Add Reminder"
+    static let description = IntentDescription("Adds a reminder to Rhythm, optionally with a due date and a list.")
+
+    @Parameter(title: "Title")
+    var reminderTitle: String
+
+    @Parameter(title: "Due")
+    var due: Date?
+
+    @Parameter(title: "List")
+    var list: ReminderListEntity?
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Add \(\.$reminderTitle)") {
+            \.$due
+            \.$list
+        }
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let calendar = Calendar.autoupdatingCurrent
+        var date: LocalDate?
+        var time: ClockTime?
+        if let due {
+            date = LocalDate(due, calendar: calendar)
+            let parts = calendar.dateComponents([.hour, .minute], from: due)
+            // Midnight means the person picked a day, not a time.
+            if (parts.hour ?? 0) != 0 || (parts.minute ?? 0) != 0 {
+                time = ClockTime(hour: parts.hour ?? 0, minute: parts.minute ?? 0)
+            }
+        }
+        guard let created = await ReminderActions.add(title: reminderTitle, dueDate: date, dueTime: time, listID: list?.id) else {
+            throw RhythmIntentError.emptyReminder
+        }
+        return .result(dialog: "Added “\(created.title)” to Rhythm.")
+    }
+}
+
 /// Opens one of the user's Quicklinks through the system URL-opening action.
 struct OpenQuicklinkIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Quicklink"
@@ -172,11 +228,14 @@ extension QuicklinkEntity {
 
 enum RhythmIntentError: Error, CustomLocalizedStringResourceConvertible {
     case invalidLink(String)
+    case emptyReminder
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .invalidLink(let title):
             "“\(title)” doesn’t have a valid link. Edit it in Rhythm."
+        case .emptyReminder:
+            "A reminder needs a title."
         }
     }
 }
@@ -207,6 +266,18 @@ struct RhythmAppShortcuts: AppShortcutsProvider {
             phrases: ["Show today in \(.applicationName)"],
             shortTitle: "Show Today",
             systemImageName: "calendar"
+        )
+        AppShortcut(
+            intent: AddReminderIntent(),
+            phrases: ["Add a reminder in \(.applicationName)", "New \(.applicationName) reminder"],
+            shortTitle: "Add Reminder",
+            systemImageName: "plus.circle"
+        )
+        AppShortcut(
+            intent: ShowRemindersIntent(),
+            phrases: ["Show my reminders in \(.applicationName)"],
+            shortTitle: "Show Reminders",
+            systemImageName: "checklist"
         )
         AppShortcut(
             intent: OpenQuicklinkIntent(),

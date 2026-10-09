@@ -84,7 +84,7 @@ final class ValueTypeTests: XCTestCase {
     func testDeepLinkRoundTrip() {
         let id = UUID()
         let links: [DeepLink] = [.today(date: nil), .today(date: Fixtures.friday), .period(id: id, date: Fixtures.friday),
-                                 .schedule(date: nil), .quicklinks, .settings]
+                                 .schedule(date: nil), .quicklinks, .settings, .reminders, .newReminder, .reminder(id: id)]
         for link in links {
             XCTAssertEqual(DeepLink(url: link.url), link)
         }

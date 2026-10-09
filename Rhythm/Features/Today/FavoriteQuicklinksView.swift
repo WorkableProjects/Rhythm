@@ -1,5 +1,5 @@
 import RhythmCore
-import SwiftData
+@preconcurrency import SwiftData
 import SwiftUI
 
 /// A small row of favourite Quicklinks on Today. Hidden when there are no favourites.

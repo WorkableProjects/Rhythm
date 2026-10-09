@@ -24,4 +24,21 @@ enum SharedStorage {
     }
 
     static let widgetKind = "RhythmScheduleWidget"
+    static let remindersWidgetKind = "RhythmRemindersWidget"
+    static let addReminderWidgetKind = "RhythmAddReminderWidget"
+
+    /// Whether the App Group is provisioned. Without it, the widget extension can't see the
+    /// app's reminders.
+    static var isGroupAvailable: Bool { containerURL != nil }
+
+    /// Where native reminders live: the App Group container when available (so widgets and App
+    /// Intents see the same data), otherwise the app's own Application Support folder.
+    static var remindersURL: URL {
+        if let container = containerURL {
+            return container.appendingPathComponent("Reminders.json", isDirectory: false)
+        }
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return support.appendingPathComponent("Rhythm/Reminders.json", isDirectory: false)
+    }
 }
