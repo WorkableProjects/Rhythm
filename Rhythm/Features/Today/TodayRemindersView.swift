@@ -33,6 +33,8 @@ struct TodayRemindersView: View {
                 fireDate = period.startDate.addingTimeInterval(-TimeInterval(minutes * 60))
             case .oneOff(let date, let time):
                 fireDate = date == day.date ? date.date(at: time, in: model.calendar) : nil
+            case .standalone:
+                fireDate = nil
             }
             guard let fireDate, period.endDate > now else { return nil }
             let title = rule.title.isEmpty ? period.title : rule.title
@@ -66,7 +68,7 @@ struct TodayRemindersView: View {
                         HStack(spacing: RhythmSpacing.md) {
                             Button {
                                 withAnimation {
-                                    model.commit {
+                                    _ = model.commit {
                                         model.repository.setReminderStatus(rule, status: .completed)
                                     }
                                 }

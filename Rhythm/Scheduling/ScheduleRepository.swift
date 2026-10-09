@@ -436,10 +436,13 @@ final class ScheduleRepository {
             }
         }
         for reminder in export.reminders {
-            guard let period = periodsByID[reminder.periodID] else { continue }
             let rule = ReminderRule(id: reminder.id, title: reminder.title, body: reminder.body,
                                     trigger: reminder.trigger, isEnabled: reminder.isEnabled)
-            period.reminders.append(rule)
+            if let periodID = reminder.periodID, let period = periodsByID[periodID] {
+                period.reminders.append(rule)
+            } else {
+                context.insert(rule)
+            }
         }
         for link in export.quicklinks {
             context.insert(Quicklink(link))

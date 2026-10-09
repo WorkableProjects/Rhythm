@@ -27,6 +27,15 @@ struct ReminderEditorView: View {
             _minutesBefore = State(initialValue: 10)
             let calendar = Calendar.autoupdatingCurrent
             _oneOffDate = State(initialValue: date.date(at: time, in: calendar) ?? .now)
+        case .standalone(let date, let time):
+            _isOneOff = State(initialValue: false)
+            _minutesBefore = State(initialValue: 10)
+            let calendar = Calendar.autoupdatingCurrent
+            if let date, let time {
+                _oneOffDate = State(initialValue: date.date(at: time, in: calendar) ?? .now)
+            } else {
+                _oneOffDate = State(initialValue: Date.now.addingTimeInterval(3600))
+            }
         }
     }
 

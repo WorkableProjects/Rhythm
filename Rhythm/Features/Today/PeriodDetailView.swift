@@ -113,6 +113,15 @@ extension ReminderTrigger {
             return "\(minutes) min before start"
         case .oneOff(let date, let time):
             return "\(date.formatted(in: calendar, style: .dateTime.month(.abbreviated).day())), \(time.formatted(calendar: calendar))"
+        case .standalone(let date, let time):
+            switch (date, time) {
+            case let (date?, time?):
+                return "\(date.formatted(in: calendar, style: .dateTime.month(.abbreviated).day())), \(time.formatted(calendar: calendar))"
+            case let (date?, nil):
+                return "Due \(date.formatted(in: calendar, style: .dateTime.month(.abbreviated).day()))"
+            default:
+                return "No due date"
+            }
         }
     }
 }
