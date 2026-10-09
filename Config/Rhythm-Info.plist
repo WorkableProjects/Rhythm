@@ -21,8 +21,6 @@
 	<array>
 		<string>fetch</string>
 	</array>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>RhythmAppGroupIdentifier</key>
 	<string>$(RHYTHM_APP_GROUP)</string>
 </dict>
