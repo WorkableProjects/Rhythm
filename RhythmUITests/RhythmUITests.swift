@@ -96,14 +96,26 @@ final class RhythmUITests: XCTestCase {
         XCTAssertTrue(liveStatusLabel.contains("AP Biology"))
     }
 
-    func testOverlapIsReportedBeforeSaving() {
+    func testNewPeriodSuggestsNonOverlappingTime() {
         launchWithSample()
         app.tabBars.buttons["Schedule"].tap()
         app.descendants(matching: .any)["templateRow-Sample Schedule"].firstMatch.tap()
         app.buttons["addPeriodButton"].firstMatch.tap()
-        // The suggested new period starts after the last one, so it is valid until moved.
-        XCTAssertTrue(app.buttons["savePeriodButton"].waitForExistence(timeout: 5))
+
+        // Save waits for a title, without flagging the empty field as an error.
+        let save = app.buttons["savePeriodButton"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertFalse(save.isEnabled)
         XCTAssertFalse(app.descendants(matching: .any)["periodIssues"].exists)
+
+        // The suggested time starts after the last period, so it has no conflicts.
+        let field = app.textFields["periodTitleField"]
+        field.tap()
+        field.typeText("Study Hall")
+        XCTAssertTrue(save.isEnabled)
+        XCTAssertFalse(app.descendants(matching: .any)["periodIssues"].exists)
+        save.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["templatePeriodRow-Study Hall"].waitForExistence(timeout: 5))
     }
 
     func testCreateDateException() {
@@ -146,7 +158,7 @@ final class RhythmUITests: XCTestCase {
         // Edit
         let classroom = app.descendants(matching: .any)["quicklinkRow-Classroom"].firstMatch
         classroom.swipeLeft()
-        app.buttons["Edit"].firstMatch.tap()
+        app.collectionViews.buttons["Edit"].firstMatch.tap()
         let title = app.textFields["quicklinkTitleField"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         title.tap()
@@ -155,17 +167,17 @@ final class RhythmUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["quicklinkRow-Google Classroom"].waitForExistence(timeout: 5))
 
         // Reorder using Edit mode's move handles.
-        app.buttons["Edit"].firstMatch.tap()
+        app.navigationBars.buttons["Edit"].tap()
         let handles = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Reorder'"))
         if handles.count >= 2 {
             handles.element(boundBy: 1).press(forDuration: 0.5, thenDragTo: handles.element(boundBy: 0))
         }
-        app.buttons["Done"].firstMatch.tap()
+        app.navigationBars.buttons["Done"].tap()
 
         // Delete
         let dictionary = app.descendants(matching: .any)["quicklinkRow-Dictionary"].firstMatch
         dictionary.swipeLeft()
-        app.buttons["Delete"].firstMatch.tap()
+        app.collectionViews.buttons["Delete"].firstMatch.tap()
         XCTAssertFalse(app.descendants(matching: .any)["quicklinkRow-Dictionary"].waitForExistence(timeout: 2))
     }
 
@@ -200,7 +212,10 @@ final class RhythmUITests: XCTestCase {
         title.tap()
         title.typeText("Lab goggles")
         app.buttons["saveReminderButton"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["notificationsDeniedNotice"].waitForExistence(timeout: 5))
+        // The notice is in the Reminders footer, below the fold; lists only expose visible rows.
+        let notice = app.descendants(matching: .any)["notificationsDeniedNotice"]
+        for _ in 0..<4 where !notice.exists { app.swipeUp() }
+        XCTAssertTrue(notice.waitForExistence(timeout: 5))
         app.buttons["savePeriodButton"].tap()
     }
 

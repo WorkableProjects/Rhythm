@@ -7,6 +7,21 @@ struct OnboardingView: View {
     @State private var isCreatingTemplate = false
 
     var body: some View {
+        // Scrolls so every control stays reachable at accessibility text sizes.
+        ScrollView {
+            content
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .background(RhythmSurface.background)
+        .sheet(isPresented: $isCreatingTemplate) {
+            NewTemplateSheet { created in
+                model.router.selectedTab = .schedule
+                model.router.pendingTemplateID = created.id
+            }
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: RhythmSpacing.xxxl) {
             Spacer(minLength: RhythmSpacing.xxxl)
 
@@ -56,14 +71,7 @@ struct OnboardingView: View {
         .padding(.horizontal, RhythmSpacing.xxl)
         .padding(.bottom, RhythmSpacing.xxl)
         .frame(maxWidth: 560)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(RhythmSurface.background)
-        .sheet(isPresented: $isCreatingTemplate) {
-            NewTemplateSheet { created in
-                model.router.selectedTab = .schedule
-                model.router.pendingTemplateID = created.id
-            }
-        }
+        .frame(maxWidth: .infinity)
     }
 }
 

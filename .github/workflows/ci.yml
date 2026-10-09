@@ -1,7 +1,10 @@
 name: CI
 
 on:
+  # Pull requests cover feature branches; pushes to main cover merges. Avoids running the
+  # macOS job twice for every push to a branch with an open PR.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
