@@ -13,8 +13,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>RhythmAppGroupIdentifier</key>
 	<string>$(RHYTHM_APP_GROUP)</string>
 </dict>
